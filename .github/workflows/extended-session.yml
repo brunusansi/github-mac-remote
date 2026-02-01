@@ -12,6 +12,15 @@ on:
           - '4'
           - '5'
           - '6'
+      macos_version:
+        description: 'macOS version'
+        required: true
+        default: '14'
+        type: choice
+        options:
+          - '14'
+          - '15'
+          - '26'
       max_chains:
         description: 'Maximum number of chains'
         required: true
@@ -37,13 +46,14 @@ on:
 
 env:
   SESSION_DURATION: ${{ github.event.inputs.duration }}
+  MACOS_VERSION: ${{ github.event.inputs.macos_version }}
   MAX_CHAINS: ${{ github.event.inputs.max_chains }}
   CURRENT_CHAIN: ${{ github.event.inputs.current_chain }}
 
 jobs:
   extended-session:
-    name: 🔗 Extended Session (Chain ${{ github.event.inputs.current_chain }}/${{ github.event.inputs.max_chains }})
-    runs-on: ${{ github.event.inputs.runner_size == 'xlarge' && 'macos-14-xlarge' || github.event.inputs.runner_size == 'large' && 'macos-14-large' || 'macos-14' }}
+    name: 🔗 Extended Session (macOS ${{ github.event.inputs.macos_version }}, Chain ${{ github.event.inputs.current_chain }}/${{ github.event.inputs.max_chains }})
+    runs-on: ${{ github.event.inputs.runner_size == 'xlarge' && format('macos-{0}-xlarge', github.event.inputs.macos_version) || github.event.inputs.runner_size == 'large' && format('macos-{0}-large', github.event.inputs.macos_version) || format('macos-{0}', github.event.inputs.macos_version) }}
     timeout-minutes: 375
     
     steps:
@@ -177,7 +187,7 @@ jobs:
           # Create file with credentials (NOT displayed in logs)
           cat > credentials/connection-info.txt << EOF
           ════════════════════════════════════════════════════════════
-            EXTENDED SESSION - Chain ${{ env.CURRENT_CHAIN }}/${{ env.MAX_CHAINS }}
+            EXTENDED SESSION - macOS ${{ env.MACOS_VERSION }} - Chain ${{ env.CURRENT_CHAIN }}/${{ env.MAX_CHAINS }}
           ════════════════════════════════════════════════════════════
           
           Started by: ${{ github.actor }}
@@ -243,7 +253,7 @@ jobs:
         run: |
           echo ""
           echo "╔══════════════════════════════════════════════════════════════════╗"
-          echo "║   🔗 EXTENDED SESSION - Chain ${{ env.CURRENT_CHAIN }}/${{ env.MAX_CHAINS }}                             ║"
+          echo "║   🔗 EXTENDED SESSION - macOS ${{ env.MACOS_VERSION }} - Chain ${{ env.CURRENT_CHAIN }}/${{ env.MAX_CHAINS }}               ║"
           echo "╚══════════════════════════════════════════════════════════════════╝"
           echo ""
           echo "👤 Session started by: ${{ github.actor }}"
@@ -319,6 +329,7 @@ jobs:
                 # Trigger next workflow
                 gh workflow run extended-session.yml \
                   -f duration=${{ env.SESSION_DURATION }} \
+                  -f macos_version=${{ github.event.inputs.macos_version }} \
                   -f max_chains=${{ env.MAX_CHAINS }} \
                   -f runner_size=${{ github.event.inputs.runner_size }} \
                   -f current_chain=${NEXT_CHAIN}

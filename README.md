@@ -51,6 +51,7 @@ Download from: **https://rustdesk.com/download**
 2. Click **"Run workflow"**
 3. Configure:
    - **Duration**: Session time (1-6 hours)
+   - **macOS Version**: Choose 14 (Sonoma), 15 (Sequoia), or 26 (Tahoe beta)
    - **Runner size**: Mac size (see table below)
 4. Click **"Run workflow"**
 
@@ -88,9 +89,23 @@ Download from: **https://rustdesk.com/download**
 
 | Tier | Runner | vCPUs | RAM | Chip | Plans |
 |------|--------|-------|-----|------|-------|
-| **Standard** | `macos-14` | 3 | 7 GB | M1 | Free, Pro, Team, Enterprise |
-| **Large** | `macos-14-large` | 12 | 30 GB | M1 Pro | Team, Enterprise |
-| **XLarge** | `macos-14-xlarge` | 24 | 70 GB | M1 Max | Enterprise |
+| **Standard** | `macos-{version}` | 3 | 7 GB | M1 | Free, Pro, Team, Enterprise |
+| **Large** | `macos-{version}-large` | 12 | 30 GB | M1 Pro* | Team, Enterprise |
+| **XLarge** | `macos-{version}-xlarge` | 24 | 70 GB | M1 Max | Enterprise |
+
+> \* Note: Some "large" runners may use Intel architecture. The system auto-detects CPU type and downloads the correct binaries.
+
+---
+
+## 🍎 macOS Versions
+
+| Version | Codename | Status | Notes |
+|---------|----------|--------|-------|
+| **14** | Sonoma | ✅ Stable | Default, M1 ARM64 |
+| **15** | Sequoia | ✅ Available | Newer features |
+| **26** | Tahoe | ⚠️ Beta | Latest beta, may be unstable |
+
+> 💡 **Tip**: Use macOS 14 for maximum stability. Use newer versions to test compatibility with upcoming macOS releases.
 
 ### Larger Runners (Large/XLarge)
 
@@ -303,6 +318,7 @@ Workflows use these variables:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `SESSION_DURATION` | Duration in hours | 2 |
+| `MACOS_VERSION` | macOS version (14, 15, 26) | 14 |
 | `RUSTDESK_PASSWORD` | RustDesk password (auto-generated) | Random |
 | `MAC_PASSWORD` | macOS user password (auto-generated) | Random |
 
