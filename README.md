@@ -5,6 +5,7 @@
 Access Mac Minis with Apple Silicon (M1/M2/M3) through GitHub Actions. Similar to MacStadium, but using GitHub's infrastructure.
 
 [![Start Mac Session](https://img.shields.io/badge/▶️_Start_Mac_Session-blue?style=for-the-badge)](../../actions/workflows/mac-session.yml)
+[![RustDesk Session](https://img.shields.io/badge/🦀_RustDesk_Session-orange?style=for-the-badge)](../../actions/workflows/rustdesk-session.yml)
 [![Extended Session](https://img.shields.io/badge/🔗_Extended_Session-green?style=for-the-badge)](../../actions/workflows/extended-session.yml)
 [![Parsec Session](https://img.shields.io/badge/🎮_Parsec_Session-purple?style=for-the-badge)](../../actions/workflows/parsec-session.yml)
 
@@ -13,7 +14,7 @@ Access Mac Minis with Apple Silicon (M1/M2/M3) through GitHub Actions. Similar t
 ## ✨ Features
 
 - 🖥️ **Real Mac ARM64** - Not a VM, physical Mac Mini with Apple Silicon
-- 🌐 **Remote Access** - Via VNC (native) or Parsec
+- 🌐 **Remote Access** - Via VNC, RustDesk, or Parsec
 - ⏱️ **Configurable Sessions** - From 1h to 6h (or more with chaining)
 - 🔗 **Extended Sessions** - Auto-chain for sessions >6h
 - 🔐 **Secure Credentials** - Password stored in private artifact
@@ -35,7 +36,15 @@ Fork this repository to your account
 Use as a template to create a new repository
 ```
 
-### 2. Start a session
+### 2. Choose a connection method
+
+| Method | Workflow | Setup | Latency | Quality |
+|--------|----------|-------|---------|---------|
+| **🦀 RustDesk** (Recommended) | `rustdesk-session.yml` | None | Low | Excellent |
+| **🖥️ VNC** | `mac-session.yml` | cloudflared | Medium | Good |
+| **🎮 Parsec** | `parsec-session.yml` | Account | Very Low | Best |
+
+### 3. Start a session
 
 1. Go to **Actions** → **"🍎 Start Mac Session"**
 2. Click **"Run workflow"**
@@ -119,6 +128,66 @@ Use the **"🔗 Extended Mac Session"** workflow for longer sessions:
 
 ---
 
+## 🦀 RustDesk (Recommended)
+
+RustDesk is an open-source remote desktop solution similar to TeamViewer/AnyDesk, but free and with no account required.
+
+### Why RustDesk?
+
+- ✅ **No tunnel setup** - Uses public relay servers automatically
+- ✅ **No account needed** - Just ID and password
+- ✅ **Cross-platform** - Windows, macOS, Linux, iOS, Android
+- ✅ **Low latency** - Optimized for remote control
+- ✅ **Open source** - No vendor lock-in
+
+### How to Connect with RustDesk
+
+#### Step 1: Download RustDesk Client
+
+Download from: https://rustdesk.com/download
+
+| OS | Download |
+|----|----------|
+| Windows | [EXE](https://github.com/rustdesk/rustdesk/releases/download/1.4.5/rustdesk-1.4.5-x86_64.exe) |
+| macOS (Intel) | [DMG](https://github.com/rustdesk/rustdesk/releases/download/1.4.5/rustdesk-1.4.5-x86_64.dmg) |
+| macOS (Apple Silicon) | [DMG](https://github.com/rustdesk/rustdesk/releases/download/1.4.5/rustdesk-1.4.5-aarch64.dmg) |
+| Linux | [DEB](https://github.com/rustdesk/rustdesk/releases/download/1.4.5/rustdesk-1.4.5-x86_64.deb) / [AppImage](https://github.com/rustdesk/rustdesk/releases/download/1.4.5/rustdesk-1.4.5-x86_64.AppImage) |
+
+#### Step 2: Start a RustDesk Session
+
+1. Go to **Actions** → **"🦀 Start Mac Session (RustDesk)"**
+2. Click **"Run workflow"**
+3. Configure duration and runner size
+4. Click **"Run workflow"**
+
+#### Step 3: Get Connection Details
+
+1. Wait for the workflow to reach "Keep Session Alive" step
+2. Check the **logs** for the RustDesk ID
+3. Download the **"connection-credentials"** artifact for the password
+
+#### Step 4: Connect
+
+1. Open RustDesk on your computer
+2. Enter the **RustDesk ID** from the workflow logs
+3. Enter the **password** from the artifact file
+4. Click **Connect**!
+
+### Connection Methods Comparison
+
+| Feature | RustDesk | VNC + Tunnel | Parsec |
+|---------|----------|--------------|--------|
+| Setup Required | None | cloudflared | Account |
+| Latency | Low | Medium | Very Low |
+| Video Quality | Excellent | Good | Best |
+| Audio Support | Yes | No | Yes |
+| File Transfer | Yes | No | Yes |
+| Cross-platform | Yes | Yes | Yes |
+| Open Source | Yes | Partial | No |
+| Works on Free Plan | Yes | Yes | Yes |
+
+---
+
 ## 🎮 Parsec (Optional - Better Performance)
 
 Parsec provides lower latency and better video quality than VNC.
@@ -194,11 +263,13 @@ curl -X POST https://kessel-api.parsecgaming.com/v1/auth \
 .
 ├── .github/
 │   └── workflows/
-│       ├── mac-session.yml        # Simple session
+│       ├── mac-session.yml        # VNC session
+│       ├── rustdesk-session.yml   # RustDesk session (recommended)
 │       ├── extended-session.yml   # Session with chaining
 │       └── parsec-session.yml     # Session with Parsec
 ├── scripts/
 │   ├── setup-vnc.sh              # Configures Screen Sharing
+│   ├── setup-rustdesk.sh         # Configures RustDesk
 │   ├── setup-tunnel.sh           # Starts tunnel
 │   ├── setup-parsec.sh           # Configures Parsec
 │   ├── keep-alive.sh             # Keeps session active
@@ -311,6 +382,7 @@ MIT License - Use freely, but at your own risk.
 
 - **GitHub Actions** - Infrastructure
 - **Cloudflare** - Free tunnels via cloudflared
+- **RustDesk** - Open-source remote desktop
 - **Parsec** - High-performance streaming
 
 ---

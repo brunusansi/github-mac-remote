@@ -1,0 +1,232 @@
+name: 🦀 Start Mac Session (RustDesk)
+
+on:
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: 'Session duration (hours)'
+        required: true
+        default: '2'
+        type: choice
+        options:
+          - '1'
+          - '2'
+          - '3'
+          - '4'
+          - '5'
+          - '6'
+      runner_size:
+        description: 'Runner size (standard=Free/Pro, large/xlarge=Team/Enterprise)'
+        required: true
+        default: 'standard'
+        type: choice
+        options:
+          - 'standard'
+          - 'large'
+          - 'xlarge'
+
+env:
+  SESSION_DURATION: ${{ github.event.inputs.duration }}
+
+jobs:
+  mac-rustdesk-session:
+    name: 🖥️ Mac RustDesk Session
+    runs-on: ${{ github.event.inputs.runner_size == 'xlarge' && 'macos-14-xlarge' || github.event.inputs.runner_size == 'large' && 'macos-14-large' || 'macos-14' }}
+    timeout-minutes: 370
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 📊 Display System Information
+        run: |
+          chmod +x scripts/system-info.sh
+          ./scripts/system-info.sh
+
+      - name: 🦀 Setup RustDesk
+        id: rustdesk
+        run: |
+          chmod +x scripts/setup-rustdesk.sh
+          
+          # Generate password
+          RUSTDESK_PASSWORD=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12)
+          echo "RUSTDESK_PASSWORD=${RUSTDESK_PASSWORD}" >> $GITHUB_ENV
+          
+          # Export and run
+          export RUSTDESK_PASSWORD
+          ./scripts/setup-rustdesk.sh
+          
+          # Give RustDesk time to register with relay servers
+          sleep 10
+
+      - name: 🔄 Fallback: Setup VNC if RustDesk fails
+        id: vnc_fallback
+        run: |
+          if ! pgrep -f "RustDesk" > /dev/null; then
+            echo "⚠️ RustDesk not running, setting up VNC as fallback..."
+            chmod +x scripts/setup-vnc.sh
+            
+            VNC_PASSWORD=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12)
+            echo "VNC_PASSWORD=${VNC_PASSWORD}" >> $GITHUB_ENV
+            echo "USE_VNC_FALLBACK=true" >> $GITHUB_ENV
+            
+            export VNC_PASSWORD
+            ./scripts/setup-vnc.sh || echo "VNC setup had issues"
+            
+            # Setup tunnel for VNC
+            chmod +x scripts/setup-tunnel.sh
+            export TUNNEL_TYPE="cloudflared"
+            export VNC_PORT=5900
+            ./scripts/setup-tunnel.sh
+            
+            sleep 10
+            
+            if [ -f /tmp/tunnel_vnc.log ]; then
+              VNC_URL=$(grep -o 'https://[^[:space:]]*\.trycloudflare\.com' /tmp/tunnel_vnc.log | head -1 || echo "See logs")
+              echo "VNC_TUNNEL_URL=${VNC_URL}" >> $GITHUB_ENV
+            fi
+          else
+            echo "✅ RustDesk is running, no fallback needed"
+            echo "USE_VNC_FALLBACK=false" >> $GITHUB_ENV
+          fi
+
+      - name: 🆔 Get RustDesk ID
+        id: get_id
+        run: |
+          # Wait for RustDesk to fully initialize
+          sleep 5
+          
+          RUSTDESK_CLI="/Applications/RustDesk.app/Contents/MacOS/rustdesk"
+          
+          if [ -f "$RUSTDESK_CLI" ]; then
+            # Try to get ID
+            RUSTDESK_ID=$("$RUSTDESK_CLI" --get-id 2>/dev/null || echo "")
+            
+            if [ -z "$RUSTDESK_ID" ]; then
+              # Try from config file
+              CONFIG_DIR="$HOME/Library/Application Support/RustDesk"
+              RUSTDESK_ID=$(cat "${CONFIG_DIR}/id" 2>/dev/null || echo "")
+            fi
+            
+            if [ -n "$RUSTDESK_ID" ]; then
+              echo "RUSTDESK_ID=${RUSTDESK_ID}" >> $GITHUB_ENV
+              echo "✅ RustDesk ID: ${RUSTDESK_ID}"
+            else
+              echo "⚠️ Could not retrieve RustDesk ID automatically"
+              echo "RUSTDESK_ID=Check_Logs" >> $GITHUB_ENV
+            fi
+          fi
+
+      - name: 📋 Save Credentials (Private Artifact)
+        run: |
+          mkdir -p credentials
+          
+          if [ "${{ env.USE_VNC_FALLBACK }}" == "true" ]; then
+            cat > credentials/connection-info.txt << EOF
+          ╔══════════════════════════════════════════════════════════════════╗
+          ║         🍎 GITHUB MAC REMOTE - CONNECTION INFO (VNC)            ║
+          ╚══════════════════════════════════════════════════════════════════╝
+          
+          ⚠️ RustDesk did not start properly, using VNC fallback
+          
+          🖥️ VNC Credentials:
+             User: $(whoami)
+             Password: ${{ env.VNC_PASSWORD }}
+          
+          🌐 Tunnel URL: ${{ env.VNC_TUNNEL_URL }}
+          
+          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          
+          📖 How to Connect (VNC):
+          
+          1. Install cloudflared on your local machine
+          2. Run: cloudflared access tcp --hostname ${{ env.VNC_TUNNEL_URL }} --url localhost:5900
+          3. Open VNC client and connect to: localhost:5900
+          4. Use the password above
+          
+          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          EOF
+          else
+            cat > credentials/connection-info.txt << EOF
+          ╔══════════════════════════════════════════════════════════════════╗
+          ║       🦀 GITHUB MAC REMOTE - CONNECTION INFO (RUSTDESK)         ║
+          ╚══════════════════════════════════════════════════════════════════╝
+          
+          🦀 RustDesk Credentials:
+             ID: ${{ env.RUSTDESK_ID }}
+             Password: ${{ env.RUSTDESK_PASSWORD }}
+          
+          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          
+          📖 How to Connect:
+          
+          1. Download RustDesk from: https://rustdesk.com/download
+          2. Install and open RustDesk on your computer
+          3. Enter ID: ${{ env.RUSTDESK_ID }}
+          4. Enter password: ${{ env.RUSTDESK_PASSWORD }}
+          5. Click Connect!
+          
+          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          
+          💡 Advantages of RustDesk:
+             - No tunnel needed (uses public relay servers)
+             - Lower latency than VNC over tunnel
+             - Works from anywhere
+             - Cross-platform client
+          
+          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          EOF
+          fi
+
+      - name: 📦 Upload Credentials Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: connection-credentials
+          path: credentials/
+          retention-days: 1
+
+      - name: 📋 Display Connection Instructions
+        run: |
+          echo ""
+          if [ "${{ env.USE_VNC_FALLBACK }}" == "true" ]; then
+            echo "╔══════════════════════════════════════════════════════════════════╗"
+            echo "║         🍎 GITHUB MAC REMOTE - READY (VNC FALLBACK)             ║"
+            echo "╚══════════════════════════════════════════════════════════════════╝"
+            echo ""
+            echo "⚠️ RustDesk não iniciou, usando VNC como fallback"
+            echo ""
+            echo "🌐 Tunnel URL: ${{ env.VNC_TUNNEL_URL }}"
+            echo ""
+            echo "📖 Conectar via VNC:"
+            echo "   cloudflared access tcp --hostname ${{ env.VNC_TUNNEL_URL }} --url localhost:5900"
+            echo ""
+          else
+            echo "╔══════════════════════════════════════════════════════════════════╗"
+            echo "║           🦀 GITHUB MAC REMOTE - READY (RUSTDESK)               ║"
+            echo "╚══════════════════════════════════════════════════════════════════╝"
+            echo ""
+            echo "🦀 RustDesk ID: ${{ env.RUSTDESK_ID }}"
+            echo ""
+            echo "🔐 CREDENCIAIS ESTÃO PRIVADAS!"
+            echo ""
+            echo "   Para ver a senha:"
+            echo "   1. Vá na aba 'Summary' deste workflow"
+            echo "   2. Baixe o artifact 'connection-credentials'"
+            echo "   3. Abra o arquivo connection-info.txt"
+            echo ""
+            echo "📖 Como conectar:"
+            echo ""
+            echo "   1. Baixe RustDesk: https://rustdesk.com/download"
+            echo "   2. Abra o RustDesk e digite o ID: ${{ env.RUSTDESK_ID }}"
+            echo "   3. Digite a senha do artifact"
+            echo "   4. Clique em Connect!"
+            echo ""
+          fi
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+      - name: ⏱️ Keep Session Alive
+        run: |
+          chmod +x scripts/keep-alive.sh
+          
+          export DURATION_HOURS="${{ env.SESSION_DURATION }}"
+          ./scripts/keep-alive.sh
