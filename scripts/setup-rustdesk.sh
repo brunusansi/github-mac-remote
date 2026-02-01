@@ -4,7 +4,7 @@
 
 set -e
 
-RUSTDESK_VERSION="${RUSTDESK_VERSION:-1.4.5}"
+RUSTDESK_VERSION="${RUSTDESK_VERSION:-1.3.7}"
 RUSTDESK_PASSWORD="${RUSTDESK_PASSWORD:-}"
 
 echo "🦀 Setting up RustDesk v${RUSTDESK_VERSION}..."
@@ -15,10 +15,23 @@ if [ -z "${RUSTDESK_PASSWORD}" ]; then
     echo "RUSTDESK_PASSWORD=${RUSTDESK_PASSWORD}" >> $GITHUB_ENV
 fi
 
-# Download RustDesk for macOS ARM64
-echo "📦 Downloading RustDesk..."
+# Detect CPU architecture
+ARCH=$(uname -m)
+echo "🖥️ Detected architecture: ${ARCH}"
+
+if [ "$ARCH" = "arm64" ]; then
+    RUSTDESK_ARCH="aarch64"
+elif [ "$ARCH" = "x86_64" ]; then
+    RUSTDESK_ARCH="x86_64"
+else
+    echo "⚠️ Unknown architecture: ${ARCH}, defaulting to aarch64"
+    RUSTDESK_ARCH="aarch64"
+fi
+
+# Download RustDesk for the correct architecture
+echo "📦 Downloading RustDesk for ${RUSTDESK_ARCH}..."
 RUSTDESK_DMG="/tmp/rustdesk.dmg"
-RUSTDESK_URL="https://github.com/rustdesk/rustdesk/releases/download/${RUSTDESK_VERSION}/rustdesk-${RUSTDESK_VERSION}-aarch64.dmg"
+RUSTDESK_URL="https://github.com/rustdesk/rustdesk/releases/download/${RUSTDESK_VERSION}/rustdesk-${RUSTDESK_VERSION}-${RUSTDESK_ARCH}.dmg"
 
 echo "   URL: ${RUSTDESK_URL}"
 curl -L "${RUSTDESK_URL}" -o "${RUSTDESK_DMG}" --progress-bar
