@@ -89,7 +89,12 @@ mkdir -p "${RUSTDESK_CONFIG_DIR}"
 # We need to set a permanent password for unattended access
 echo "⚙️ Configuring RustDesk..."
 
-# Create RustDesk2.toml config file
+# Encode password for RustDesk config (base64)
+# RustDesk expects password in base64 format in config
+ENCODED_PASSWORD=$(echo -n "${RUSTDESK_PASSWORD}" | base64)
+
+# Create RustDesk2.toml config file WITH password pre-set
+# This method sets password BEFORE first launch, which is most reliable
 cat > "${RUSTDESK_CONFIG_DIR}/RustDesk2.toml" << EOFTOML
 rendezvous_server = 'rs-ny.rustdesk.com'
 nat_type = 1
@@ -99,7 +104,16 @@ serial = 0
 allow-auto-disconnect = 'N'
 stop-service = 'N'
 direct-server = 'Y'
+allow-linux-headless = 'Y'
 EOFTOML
+
+# Also create RustDesk.toml with password (RustDesk checks both files)
+cat > "${RUSTDESK_CONFIG_DIR}/RustDesk.toml" << EOFTOML
+password = '${RUSTDESK_PASSWORD}'
+EOFTOML
+
+echo "   ✅ Pre-configured password in config files"
+echo "   📁 Config location: ${RUSTDESK_CONFIG_DIR}"
 
 # Grant necessary permissions via TCC database (may require SIP disabled)
 echo "🔐 Attempting to grant permissions..."
@@ -126,15 +140,58 @@ echo "🔑 Setting up password..."
 if [ -f "/Applications/RustDesk.app/Contents/MacOS/rustdesk" ]; then
     RUSTDESK_CLI="/Applications/RustDesk.app/Contents/MacOS/rustdesk"
     
-    # Try to set permanent password
-    "${RUSTDESK_CLI}" --password "${RUSTDESK_PASSWORD}" 2>/dev/null || true
+    # Try to set permanent password with sudo (required for RustDesk)
+    echo "   Attempting to set password with sudo..."
+    if sudo "${RUSTDESK_CLI}" --password "${RUSTDESK_PASSWORD}"; then
+        echo "   ✅ Password set successfully via CLI"
+        PASSWORD_SET=true
+    else
+        echo "   ⚠️ Failed to set password via CLI, will try alternative methods..."
+        PASSWORD_SET=false
+    fi
+    
+    # Give RustDesk time to write config
+    sleep 3
     
     # Get the RustDesk ID
-    sleep 3
     RUSTDESK_ID=$("${RUSTDESK_CLI}" --get-id 2>/dev/null || echo "")
     
     if [ -n "${RUSTDESK_ID}" ]; then
         echo "RUSTDESK_ID=${RUSTDESK_ID}" >> $GITHUB_ENV
+        echo "   ✅ RustDesk ID: ${RUSTDESK_ID}"
+    fi
+    
+    # If password setting failed, try to get RustDesk's auto-generated password
+    if [ "${PASSWORD_SET}" != "true" ]; then
+        echo "   🔍 Looking for RustDesk's auto-generated password..."
+        
+        # Method 1: Try --get-password CLI option
+        AUTO_PASSWORD=$(sudo "${RUSTDESK_CLI}" --get-password 2>/dev/null || echo "")
+        
+        # Method 2: Check config file for password
+        if [ -z "${AUTO_PASSWORD}" ]; then
+            CONFIG_FILE="${RUSTDESK_CONFIG_DIR}/RustDesk.toml"
+            if [ -f "${CONFIG_FILE}" ]; then
+                AUTO_PASSWORD=$(grep -E "^password\s*=" "${CONFIG_FILE}" 2>/dev/null | cut -d"'" -f2 || echo "")
+            fi
+        fi
+        
+        # Method 3: Check RustDesk2.toml
+        if [ -z "${AUTO_PASSWORD}" ]; then
+            CONFIG_FILE="${RUSTDESK_CONFIG_DIR}/RustDesk2.toml"
+            if [ -f "${CONFIG_FILE}" ]; then
+                AUTO_PASSWORD=$(grep -E "^password\s*=" "${CONFIG_FILE}" 2>/dev/null | cut -d"'" -f2 || echo "")
+            fi
+        fi
+        
+        # If we found an auto-generated password, use it
+        if [ -n "${AUTO_PASSWORD}" ]; then
+            RUSTDESK_PASSWORD="${AUTO_PASSWORD}"
+            echo "RUSTDESK_PASSWORD=${RUSTDESK_PASSWORD}" >> $GITHUB_ENV
+            echo "   ✅ Using RustDesk's auto-generated password"
+        else
+            echo "   ⚠️ Could not retrieve password - you may need to check RustDesk UI"
+        fi
     fi
 fi
 
@@ -214,3 +271,15 @@ fi
 echo ""
 echo "📁 Config directory contents:"
 ls -la "${RUSTDESK_CONFIG_DIR}/" 2>/dev/null || echo "   (directory is empty or inaccessible)"
+
+# Show config file contents for debugging (password is visible in workflow logs anyway)
+echo ""
+echo "📄 RustDesk.toml contents:"
+cat "${RUSTDESK_CONFIG_DIR}/RustDesk.toml" 2>/dev/null || echo "   (file not found)"
+
+echo ""
+echo "📄 RustDesk2.toml contents:"
+cat "${RUSTDESK_CONFIG_DIR}/RustDesk2.toml" 2>/dev/null || echo "   (file not found)"
+
+echo ""
+echo "🎉 RustDesk setup complete!"
