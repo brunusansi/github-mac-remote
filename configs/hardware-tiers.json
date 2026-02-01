@@ -1,0 +1,45 @@
+{
+  "tiers": {
+    "standard": {
+      "runner": "macos-14",
+      "vcpu": 3,
+      "ram_gb": 7,
+      "chip": "M1",
+      "plans": ["free", "pro", "team", "enterprise"],
+      "description": "Standard ARM64 runner - available for all plans"
+    },
+    "large": {
+      "runner": "macos-14-large",
+      "vcpu": 12,
+      "ram_gb": 30,
+      "chip": "M1 Pro",
+      "plans": ["team", "enterprise"],
+      "description": "Large runner - requires Team or Enterprise plan"
+    },
+    "xlarge": {
+      "runner": "macos-14-xlarge",
+      "vcpu": 24,
+      "ram_gb": 70,
+      "chip": "M1 Max",
+      "plans": ["enterprise"],
+      "description": "Extra large runner - requires Enterprise plan"
+    }
+  },
+  "limits": {
+    "max_session_hours": 6,
+    "default_session_hours": 2,
+    "keepalive_interval_minutes": 5,
+    "warning_before_end_minutes": [15, 5],
+    "max_chains": 3
+  },
+  "tunnels": {
+    "cloudflared": {
+      "priority": 1,
+      "description": "Free, no limits, no account required"
+    },
+    "ngrok": {
+      "priority": 2,
+      "description": "Free tier has limits, requires account for more"
+    }
+  }
+}

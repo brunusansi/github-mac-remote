@@ -1,0 +1,111 @@
+name: 🎮 Parsec Mac Session
+
+on:
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: 'Session duration (hours)'
+        required: true
+        default: '2'
+        type: choice
+        options:
+          - '1'
+          - '2'
+          - '3'
+          - '4'
+          - '5'
+          - '6'
+      runner_size:
+        description: 'Runner size'
+        required: true
+        default: 'standard'
+        type: choice
+        options:
+          - 'standard'
+          - 'large'
+          - 'xlarge'
+      host_name:
+        description: 'Parsec host name (how it appears in your list)'
+        required: false
+        default: ''
+
+env:
+  SESSION_DURATION: ${{ github.event.inputs.duration }}
+
+jobs:
+  parsec-session:
+    name: 🎮 Parsec Remote Session
+    runs-on: ${{ github.event.inputs.runner_size == 'xlarge' && 'macos-14-xlarge' || github.event.inputs.runner_size == 'large' && 'macos-14-large' || 'macos-14' }}
+    timeout-minutes: ${{ fromJSON(github.event.inputs.duration) * 60 + 10 }}
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🔍 Check Parsec Credentials
+        run: |
+          if [ -z "${{ secrets.PARSEC_SESSION_ID }}" ]; then
+            echo ""
+            echo "❌ ERROR: PARSEC_SESSION_ID secret not configured!"
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo ""
+            echo "📖 How to configure Parsec:"
+            echo ""
+            echo "   1. Get your Parsec session ID (see docs/PARSEC.md)"
+            echo "   2. Go to Repository Settings → Secrets → Actions"
+            echo "   3. Add secret: PARSEC_SESSION_ID = your_session_id"
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            exit 1
+          fi
+          echo "✅ Parsec credentials found"
+
+      - name: 📊 Display System Information
+        run: |
+          chmod +x scripts/system-info.sh
+          ./scripts/system-info.sh
+
+      - name: 🎮 Setup Parsec
+        run: |
+          chmod +x scripts/setup-parsec.sh
+          
+          # Set host name
+          if [ -n "${{ github.event.inputs.host_name }}" ]; then
+            export PARSEC_HOST_NAME="${{ github.event.inputs.host_name }}"
+          else
+            export PARSEC_HOST_NAME="GitHub-Mac-${{ github.run_id }}"
+          fi
+          
+          export PARSEC_SESSION_ID="${{ secrets.PARSEC_SESSION_ID }}"
+          
+          ./scripts/setup-parsec.sh
+          
+          echo "PARSEC_HOST_NAME=${PARSEC_HOST_NAME}" >> $GITHUB_ENV
+
+      - name: 📋 Display Connection Info
+        run: |
+          echo ""
+          echo "╔══════════════════════════════════════════════════════════════════╗"
+          echo "║              🎮 PARSEC SESSION READY                             ║"
+          echo "╚══════════════════════════════════════════════════════════════════╝"
+          echo ""
+          echo "🎮 Parsec Host: ${{ env.PARSEC_HOST_NAME }}"
+          echo ""
+          echo "📖 How to Connect:"
+          echo ""
+          echo "   1. Open Parsec app on your computer"
+          echo "   2. Find '${{ env.PARSEC_HOST_NAME }}' in your computers list"
+          echo "   3. Click to connect!"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "⏱️  Session will remain active for ${{ env.SESSION_DURATION }} hour(s)"
+          echo ""
+
+      - name: ⏱️ Keep Session Alive
+        run: |
+          chmod +x scripts/keep-alive.sh
+          
+          export DURATION_HOURS="${{ env.SESSION_DURATION }}"
+          ./scripts/keep-alive.sh

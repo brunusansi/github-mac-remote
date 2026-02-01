@@ -1,0 +1,18 @@
+# OpenSpec artifacts (development only)
+openspec/
+
+# OpenCode/OpenSpec config (local development)
+.opencode/
+.github/prompts/
+.github/skills/
+.github/copilot-instructions.md
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+/tmp/

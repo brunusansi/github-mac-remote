@@ -1,0 +1,123 @@
+name: 🍎 Start Mac Session
+
+on:
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: 'Session duration (hours)'
+        required: true
+        default: '2'
+        type: choice
+        options:
+          - '1'
+          - '2'
+          - '3'
+          - '4'
+          - '5'
+          - '6'
+      runner_size:
+        description: 'Runner size (standard=Free/Pro, large/xlarge=Team/Enterprise)'
+        required: true
+        default: 'standard'
+        type: choice
+        options:
+          - 'standard'
+          - 'large'
+          - 'xlarge'
+      tunnel_type:
+        description: 'Tunnel provider'
+        required: true
+        default: 'cloudflared'
+        type: choice
+        options:
+          - 'cloudflared'
+          - 'ngrok'
+
+env:
+  SESSION_DURATION: ${{ github.event.inputs.duration }}
+  TUNNEL_TYPE: ${{ github.event.inputs.tunnel_type }}
+
+jobs:
+  mac-session:
+    name: 🖥️ Mac Remote Session
+    runs-on: ${{ github.event.inputs.runner_size == 'xlarge' && 'macos-14-xlarge' || github.event.inputs.runner_size == 'large' && 'macos-14-large' || 'macos-14' }}
+    timeout-minutes: ${{ fromJSON(github.event.inputs.duration) * 60 + 10 }}
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 📊 Display System Information
+        run: |
+          chmod +x scripts/system-info.sh
+          ./scripts/system-info.sh
+
+      - name: 🔐 Setup VNC (Screen Sharing)
+        id: vnc
+        run: |
+          chmod +x scripts/setup-vnc.sh
+          
+          # Generate password
+          VNC_PASSWORD=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12)
+          echo "VNC_PASSWORD=${VNC_PASSWORD}" >> $GITHUB_ENV
+          
+          # Export and run
+          export VNC_PASSWORD
+          ./scripts/setup-vnc.sh
+
+      - name: 🚇 Setup Tunnel
+        id: tunnel
+        run: |
+          chmod +x scripts/setup-tunnel.sh
+          
+          # Run tunnel setup (this starts tunnel in background)
+          export TUNNEL_TYPE="${{ env.TUNNEL_TYPE }}"
+          export VNC_PORT=5900
+          ./scripts/setup-tunnel.sh
+          
+          # Give tunnel time to establish
+          sleep 10
+          
+          # Capture tunnel URLs for display
+          if [ -f /tmp/tunnel_vnc.log ]; then
+            VNC_URL=$(grep -o 'https://[^[:space:]]*\.trycloudflare\.com' /tmp/tunnel_vnc.log | head -1 || grep -o 'tcp://[^[:space:]]*' /tmp/tunnel_vnc.log | head -1 || echo "See logs")
+            echo "VNC_TUNNEL_URL=${VNC_URL}" >> $GITHUB_ENV
+          fi
+        env:
+          NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+
+      - name: 📋 Display Connection Credentials
+        run: |
+          chmod +x scripts/show-credentials.sh
+          
+          echo ""
+          echo "╔══════════════════════════════════════════════════════════════════╗"
+          echo "║              🍎 GITHUB MAC REMOTE - READY TO CONNECT             ║"
+          echo "╚══════════════════════════════════════════════════════════════════╝"
+          echo ""
+          echo "🖥️  VNC Credentials:"
+          echo "   ├─ User: $(whoami)"
+          echo "   └─ Password: ${{ env.VNC_PASSWORD }}"
+          echo ""
+          echo "🌐 Tunnel URL: ${{ env.VNC_TUNNEL_URL }}"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "📖 How to Connect with Cloudflared:"
+          echo ""
+          echo "   1. Install cloudflared on your local machine"
+          echo "   2. Run this command:"
+          echo ""
+          echo "      cloudflared access tcp --hostname ${{ env.VNC_TUNNEL_URL }} --url localhost:5900"
+          echo ""
+          echo "   3. Open your VNC client and connect to: localhost:5900"
+          echo "   4. Use the password shown above"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+      - name: ⏱️ Keep Session Alive
+        run: |
+          chmod +x scripts/keep-alive.sh
+          
+          export DURATION_HOURS="${{ env.SESSION_DURATION }}"
+          ./scripts/keep-alive.sh
