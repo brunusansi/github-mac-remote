@@ -3,7 +3,7 @@ temp/
 temp3/
 tmp/
 
-# Credentials (nunca commitar)
+# Credentials (never commit)
 credentials/
 *.credentials
 connection-info.txt
@@ -19,3 +19,10 @@ connection-info.txt
 
 # Logs
 *.log
+
+# OpenSpec (internal tooling)
+openspec/
+.opencode/
+.github/copilot-instructions.md
+.github/prompts/
+.github/skills/

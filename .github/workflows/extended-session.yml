@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       duration:
-        description: 'Duração por cadeia (horas)'
+        description: 'Duration per chain (hours)'
         required: true
         default: '6'
         type: choice
@@ -13,7 +13,7 @@ on:
           - '5'
           - '6'
       max_chains:
-        description: 'Número máximo de cadeias'
+        description: 'Maximum number of chains'
         required: true
         default: '2'
         type: choice
@@ -22,7 +22,7 @@ on:
           - '2'
           - '3'
       runner_size:
-        description: 'Tamanho do runner'
+        description: 'Runner size'
         required: true
         default: 'standard'
         type: choice
@@ -31,7 +31,7 @@ on:
           - 'large'
           - 'xlarge'
       current_chain:
-        description: 'Cadeia atual (uso interno)'
+        description: 'Current chain number (internal use)'
         required: false
         default: '1'
 
@@ -42,7 +42,7 @@ env:
 
 jobs:
   extended-session:
-    name: 🔗 Sessão Estendida (Cadeia ${{ github.event.inputs.current_chain }}/${{ github.event.inputs.max_chains }})
+    name: 🔗 Extended Session (Chain ${{ github.event.inputs.current_chain }}/${{ github.event.inputs.max_chains }})
     runs-on: ${{ github.event.inputs.runner_size == 'xlarge' && 'macos-14-xlarge' || github.event.inputs.runner_size == 'large' && 'macos-14-large' || 'macos-14' }}
     timeout-minutes: 375
     
@@ -50,39 +50,44 @@ jobs:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
-      - name: 📊 Informações do Sistema
+      - name: 📊 System Information
         run: |
           chmod +x scripts/system-info.sh
           ./scripts/system-info.sh
           
           echo ""
-          echo "🔗 Informações da Cadeia:"
-          echo "   ├─ Cadeia Atual: ${{ env.CURRENT_CHAIN }} / ${{ env.MAX_CHAINS }}"
-          echo "   ├─ Duração: ${{ env.SESSION_DURATION }} horas"
+          echo "🔗 Chain Information:"
+          echo "   ├─ Current Chain: ${{ env.CURRENT_CHAIN }} / ${{ env.MAX_CHAINS }}"
+          echo "   ├─ Duration: ${{ env.SESSION_DURATION }} hours"
           TOTAL_TIME=$(( ${{ env.CURRENT_CHAIN }} * ${{ env.SESSION_DURATION }} ))
-          echo "   └─ Tempo Total (até agora): ${TOTAL_TIME} horas"
+          echo "   └─ Total Time (so far): ${TOTAL_TIME} hours"
           echo ""
 
-      - name: 🦀 Configurar RustDesk
+      - name: 🎮 Install Parsec (for optional manual use)
+        run: |
+          chmod +x scripts/install-parsec.sh
+          ./scripts/install-parsec.sh
+
+      - name: 🦀 Setup RustDesk
         run: |
           chmod +x scripts/setup-rustdesk.sh
           
-          # Gerar senha segura
+          # Generate secure password
           RUSTDESK_PASSWORD=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12)
           
-          # Mascarar a senha nos logs do GitHub Actions
+          # Mask password in GitHub Actions logs
           echo "::add-mask::${RUSTDESK_PASSWORD}"
           
-          # Salvar como variável de ambiente (mascarada)
+          # Save as environment variable (masked)
           echo "RUSTDESK_PASSWORD=${RUSTDESK_PASSWORD}" >> $GITHUB_ENV
           
           export RUSTDESK_PASSWORD
           ./scripts/setup-rustdesk.sh
           
-          # Aguardar RustDesk registrar
+          # Wait for RustDesk to register
           sleep 10
 
-      - name: 🔑 Obter RustDesk ID
+      - name: 🔑 Get RustDesk ID
         run: |
           sleep 5
           
@@ -100,97 +105,101 @@ jobs:
               echo "RUSTDESK_ID=${RUSTDESK_ID}" >> $GITHUB_ENV
               echo "✅ RustDesk ID: ${RUSTDESK_ID}"
             else
-              echo "RUSTDESK_ID=Ver_Logs" >> $GITHUB_ENV
+              echo "RUSTDESK_ID=Check_Logs" >> $GITHUB_ENV
             fi
           fi
 
-      - name: 💾 Salvar Credenciais (Arquivo Privado)
+      - name: 💾 Save Credentials (Private File)
         run: |
           mkdir -p credentials
           
-          # Criar arquivo com credenciais (NÃO exibir no log)
+          # Create file with credentials (NOT displayed in logs)
           cat > credentials/connection-info.txt << EOF
           ════════════════════════════════════════════════════════════
-            SESSÃO ESTENDIDA - Cadeia ${{ env.CURRENT_CHAIN }}/${{ env.MAX_CHAINS }}
+            EXTENDED SESSION - Chain ${{ env.CURRENT_CHAIN }}/${{ env.MAX_CHAINS }}
           ════════════════════════════════════════════════════════════
           
-          Iniciado por: ${{ github.actor }}
-          Data/Hora: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          Started by: ${{ github.actor }}
+          Date/Time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
           Run ID: ${{ github.run_id }}
           
           ────────────────────────────────────────────────────────────
-          Credenciais RustDesk:
+          RustDesk Credentials:
           ────────────────────────────────────────────────────────────
           
-            ID:    ${{ env.RUSTDESK_ID }}
-            Senha: ${{ env.RUSTDESK_PASSWORD }}
+            ID:       ${{ env.RUSTDESK_ID }}
+            Password: ${{ env.RUSTDESK_PASSWORD }}
           
           ────────────────────────────────────────────────────────────
-          Como Conectar:
+          How to Connect:
           ────────────────────────────────────────────────────────────
           
-          1. Baixe o RustDesk: https://rustdesk.com/download
-          2. Digite o ID e senha acima
-          3. Clique Connect!
+          1. Download RustDesk: https://rustdesk.com/download
+          2. Enter the ID and password above
+          3. Click Connect!
           
-          ⚠️  Nova cadeia = novas credenciais!
+          ⚠️  New chain = new credentials!
+          
+          🎮 Parsec is also installed for optional use.
           
           ════════════════════════════════════════════════════════════
-          ⚠️  ATENÇÃO: Este arquivo contém credenciais sensíveis.
-              Não compartilhe com terceiros.
+          ⚠️  WARNING: This file contains sensitive credentials.
+              Do not share with others.
           ════════════════════════════════════════════════════════════
           EOF
 
       - name: 📦 Upload Credentials Artifact
         uses: actions/upload-artifact@v4
         with:
-          # Nome do artifact inclui o usuário e cadeia para identificação
+          # Artifact name includes user and chain for identification
           name: credentials-${{ github.actor }}-chain${{ env.CURRENT_CHAIN }}-${{ github.run_id }}
           path: credentials/
           retention-days: 1
 
-      - name: 📋 Instruções de Conexão
+      - name: 📋 Connection Instructions
         run: |
           echo ""
           echo "╔══════════════════════════════════════════════════════════════════╗"
-          echo "║   🔗 SESSÃO ESTENDIDA - Cadeia ${{ env.CURRENT_CHAIN }}/${{ env.MAX_CHAINS }}                          ║"
+          echo "║   🔗 EXTENDED SESSION - Chain ${{ env.CURRENT_CHAIN }}/${{ env.MAX_CHAINS }}                             ║"
           echo "╚══════════════════════════════════════════════════════════════════╝"
           echo ""
-          echo "👤 Sessão iniciada por: ${{ github.actor }}"
+          echo "👤 Session started by: ${{ github.actor }}"
           echo ""
           echo "🔑 RustDesk ID: ${{ env.RUSTDESK_ID }}"
           echo ""
-          echo "🔐 Senha: ████████████ (protegida)"
+          echo "🔐 Password: ████████████ (protected)"
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
-          echo "📥 COMO OBTER A SENHA:"
+          echo "📥 HOW TO GET THE PASSWORD:"
           echo ""
-          echo "   1. Vá para a aba 'Summary' deste workflow"
-          echo "   2. Baixe o artifact: credentials-${{ github.actor }}-chain${{ env.CURRENT_CHAIN }}-${{ github.run_id }}"
-          echo "   3. Abra o arquivo connection-info.txt"
+          echo "   1. Go to the 'Summary' tab of this workflow"
+          echo "   2. Download artifact: credentials-${{ github.actor }}-chain${{ env.CURRENT_CHAIN }}-${{ github.run_id }}"
+          echo "   3. Open the connection-info.txt file"
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
-          echo "🔒 SEGURANÇA: A senha NÃO é exibida nos logs."
+          echo "🎮 Parsec is also installed! Open it from Applications if you prefer."
+          echo ""
+          echo "🔒 SECURITY: Password is NOT displayed in logs."
           echo ""
 
-      - name: ⏱️ Manter Sessão Ativa (com trigger de cadeia)
+      - name: ⏱️ Keep Session Alive (with chain trigger)
         run: |
           chmod +x scripts/keep-alive.sh
           
           DURATION_HOURS=${{ env.SESSION_DURATION }}
           KEEPALIVE_INTERVAL=300
           
-          # Calcular tempos
+          # Calculate times
           DURATION_SECONDS=$((DURATION_HOURS * 3600))
-          CHAIN_TRIGGER_TIME=$((DURATION_SECONDS - 120)) # 2 minutos antes do fim
+          CHAIN_TRIGGER_TIME=$((DURATION_SECONDS - 120)) # 2 minutes before end
           START_TIME=$(date +%s)
           END_TIME=$((START_TIME + DURATION_SECONDS))
           
-          echo "⏱️  Keep-alive iniciado"
-          echo "   Duração: ${DURATION_HOURS} hora(s)"
-          echo "   Trigger da próxima cadeia: 2 minutos antes do fim"
+          echo "⏱️  Keep-alive started"
+          echo "   Duration: ${DURATION_HOURS} hour(s)"
+          echo "   Next chain trigger: 2 minutes before end"
           echo ""
           
           triggered_chain=false
@@ -202,11 +211,11 @@ jobs:
             
             if [ $REMAINING -le 0 ]; then
               echo ""
-              echo "⏰ Tempo da sessão expirado."
+              echo "⏰ Session time expired."
               break
             fi
             
-            # Disparar próxima cadeia 2 minutos antes do fim
+            # Trigger next chain 2 minutes before end
             if [ $ELAPSED -ge $CHAIN_TRIGGER_TIME ] && [ "$triggered_chain" = false ]; then
               CURRENT_CHAIN=${{ env.CURRENT_CHAIN }}
               MAX_CHAINS=${{ env.MAX_CHAINS }}
@@ -215,12 +224,12 @@ jobs:
               if [ $NEXT_CHAIN -le $MAX_CHAINS ]; then
                 echo ""
                 echo "🔗 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-                echo "🔗 Iniciando próxima cadeia (${NEXT_CHAIN}/${MAX_CHAINS})..."
-                echo "🔗 Nova sessão com novas credenciais em breve."
+                echo "🔗 Starting next chain (${NEXT_CHAIN}/${MAX_CHAINS})..."
+                echo "🔗 New session with new credentials coming soon."
                 echo "🔗 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
                 echo ""
                 
-                # Disparar próximo workflow
+                # Trigger next workflow
                 gh workflow run extended-session.yml \
                   -f duration=${{ env.SESSION_DURATION }} \
                   -f max_chains=${{ env.MAX_CHAINS }} \
@@ -230,31 +239,31 @@ jobs:
                 triggered_chain=true
               else
                 echo ""
-                echo "⚠️  Máximo de cadeias atingido. Sem mais extensões."
+                echo "⚠️  Maximum chains reached. No more extensions."
               fi
             fi
             
-            # Avisos
+            # Warnings
             if [ $REMAINING -le 900 ] && [ $REMAINING -gt 890 ]; then
               echo ""
-              echo "⚠️  15 minutos restantes nesta cadeia!"
+              echo "⚠️  15 minutes remaining in this chain!"
             fi
             
             if [ $REMAINING -le 300 ] && [ $REMAINING -gt 290 ]; then
               echo ""
-              echo "🚨 5 minutos restantes! Verifique novas credenciais da próxima cadeia."
+              echo "🚨 5 minutes remaining! Check for new chain credentials."
             fi
             
             # Heartbeat
             HOURS=$((REMAINING / 3600))
             MINUTES=$(((REMAINING % 3600) / 60))
-            printf "\r💓 [%02d:%02d restante] Cadeia ${{ env.CURRENT_CHAIN }} ativa - $(date '+%H:%M:%S')     " $HOURS $MINUTES
+            printf "\r💓 [%02d:%02d remaining] Chain ${{ env.CURRENT_CHAIN }} active - $(date '+%H:%M:%S')     " $HOURS $MINUTES
             
             SLEEP_TIME=$((REMAINING < KEEPALIVE_INTERVAL ? REMAINING : KEEPALIVE_INTERVAL))
             sleep $SLEEP_TIME
           done
           
           echo ""
-          echo "👋 Cadeia ${{ env.CURRENT_CHAIN }} finalizada."
+          echo "👋 Chain ${{ env.CURRENT_CHAIN }} ended."
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

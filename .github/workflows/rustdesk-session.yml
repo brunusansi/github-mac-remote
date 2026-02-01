@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       duration:
-        description: 'Duração da sessão (horas)'
+        description: 'Session duration (hours)'
         required: true
         default: '2'
         type: choice
@@ -16,7 +16,7 @@ on:
           - '5'
           - '6'
       runner_size:
-        description: 'Tamanho do runner (standard=Free/Pro, large/xlarge=Team/Enterprise)'
+        description: 'Runner size (standard=Free/Pro, large/xlarge=Team/Enterprise)'
         required: true
         default: 'standard'
         type: choice
@@ -38,46 +38,51 @@ jobs:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
-      - name: 📊 Informações do Sistema
+      - name: 📊 System Information
         run: |
           chmod +x scripts/system-info.sh
           ./scripts/system-info.sh
 
-      - name: 🦀 Configurar RustDesk
+      - name: 🎮 Install Parsec (for optional manual use)
+        run: |
+          chmod +x scripts/install-parsec.sh
+          ./scripts/install-parsec.sh
+
+      - name: 🦀 Setup RustDesk
         id: rustdesk
         run: |
           chmod +x scripts/setup-rustdesk.sh
           
-          # Gerar senha segura
+          # Generate secure password
           RUSTDESK_PASSWORD=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12)
           
-          # Mascarar a senha nos logs do GitHub Actions
+          # Mask password in GitHub Actions logs
           echo "::add-mask::${RUSTDESK_PASSWORD}"
           
-          # Salvar como variável de ambiente (mascarada)
+          # Save as environment variable (masked)
           echo "RUSTDESK_PASSWORD=${RUSTDESK_PASSWORD}" >> $GITHUB_ENV
           
-          # Exportar e executar
+          # Export and run
           export RUSTDESK_PASSWORD
           ./scripts/setup-rustdesk.sh
           
-          # Aguardar RustDesk registrar nos servidores relay
+          # Wait for RustDesk to register with relay servers
           sleep 10
 
-      - name: 🔑 Obter RustDesk ID
+      - name: 🔑 Get RustDesk ID
         id: get_id
         run: |
-          # Aguardar inicialização completa
+          # Wait for full initialization
           sleep 5
           
           RUSTDESK_CLI="/Applications/RustDesk.app/Contents/MacOS/rustdesk"
           
           if [ -f "$RUSTDESK_CLI" ]; then
-            # Tentar obter ID
+            # Try to get ID
             RUSTDESK_ID=$("$RUSTDESK_CLI" --get-id 2>/dev/null || echo "")
             
             if [ -z "$RUSTDESK_ID" ]; then
-              # Tentar do arquivo de config
+              # Try from config file
               CONFIG_DIR="$HOME/Library/Application Support/RustDesk"
               RUSTDESK_ID=$(cat "${CONFIG_DIR}/id" 2>/dev/null || echo "")
             fi
@@ -86,96 +91,109 @@ jobs:
               echo "RUSTDESK_ID=${RUSTDESK_ID}" >> $GITHUB_ENV
               echo "✅ RustDesk ID: ${RUSTDESK_ID}"
             else
-              echo "⚠️ Não foi possível obter o RustDesk ID automaticamente"
-              echo "RUSTDESK_ID=Ver_Logs" >> $GITHUB_ENV
+              echo "⚠️ Could not retrieve RustDesk ID automatically"
+              echo "RUSTDESK_ID=Check_Logs" >> $GITHUB_ENV
             fi
           fi
 
-      - name: 💾 Salvar Credenciais (Arquivo Privado)
+      - name: 💾 Save Credentials (Private File)
         run: |
           mkdir -p credentials
           
-          # Criar arquivo com credenciais (NÃO exibir no log)
+          # Create file with credentials (NOT displayed in logs)
           cat > credentials/connection-info.txt << EOF
           ════════════════════════════════════════════════════════════
-                    GITHUB MAC REMOTE - CREDENCIAIS
+                    GITHUB MAC REMOTE - CREDENTIALS
           ════════════════════════════════════════════════════════════
           
-          Iniciado por: ${{ github.actor }}
-          Data/Hora: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          Started by: ${{ github.actor }}
+          Date/Time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
           Run ID: ${{ github.run_id }}
           
           ────────────────────────────────────────────────────────────
-          Credenciais RustDesk:
+          RustDesk Credentials:
           ────────────────────────────────────────────────────────────
           
-            ID:    ${{ env.RUSTDESK_ID }}
-            Senha: ${{ env.RUSTDESK_PASSWORD }}
+            ID:       ${{ env.RUSTDESK_ID }}
+            Password: ${{ env.RUSTDESK_PASSWORD }}
           
           ────────────────────────────────────────────────────────────
-          Como Conectar:
+          How to Connect:
           ────────────────────────────────────────────────────────────
           
-          1. Baixe o RustDesk em: https://rustdesk.com/download
-          2. Instale e abra o RustDesk no seu computador
-          3. Digite o ID mostrado acima
-          4. Digite a senha mostrada acima
-          5. Clique em Connect!
+          1. Download RustDesk from: https://rustdesk.com/download
+          2. Install and open RustDesk on your computer
+          3. Enter the ID shown above
+          4. Enter the password shown above
+          5. Click Connect!
+          
+          ────────────────────────────────────────────────────────────
+          Optional: Parsec is also installed!
+          ────────────────────────────────────────────────────────────
+          
+          If you prefer Parsec for lower latency:
+          1. Connect via RustDesk first
+          2. Open Parsec from Applications
+          3. Log in with your Parsec account
+          4. Enable hosting and connect from your other device
           
           ════════════════════════════════════════════════════════════
-          ⚠️  ATENÇÃO: Este arquivo contém credenciais sensíveis.
-              Não compartilhe com terceiros.
+          ⚠️  WARNING: This file contains sensitive credentials.
+              Do not share with others.
           ════════════════════════════════════════════════════════════
           EOF
 
-      - name: 📦 Upload Artifact de Credenciais
+      - name: 📦 Upload Credentials Artifact
         uses: actions/upload-artifact@v4
         with:
-          # Nome do artifact inclui o usuário que iniciou para identificação
+          # Artifact name includes the user who started it for identification
           name: credentials-${{ github.actor }}-${{ github.run_id }}
           path: credentials/
           retention-days: 1
-          # Artifact é privado por padrão - apenas quem tem acesso ao repo pode baixar
 
-      - name: 📋 Instruções de Conexão
+      - name: 📋 Connection Instructions
         run: |
           echo ""
           echo "╔══════════════════════════════════════════════════════════════════╗"
-          echo "║              🦀 GITHUB MAC REMOTE - PRONTO                       ║"
+          echo "║              🦀 GITHUB MAC REMOTE - READY                        ║"
           echo "╚══════════════════════════════════════════════════════════════════╝"
           echo ""
-          echo "👤 Sessão iniciada por: ${{ github.actor }}"
+          echo "👤 Session started by: ${{ github.actor }}"
           echo ""
           echo "🔑 RustDesk ID: ${{ env.RUSTDESK_ID }}"
           echo ""
-          echo "🔐 Senha: ████████████ (protegida)"
+          echo "🔐 Password: ████████████ (protected)"
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
-          echo "📥 COMO OBTER A SENHA:"
+          echo "📥 HOW TO GET THE PASSWORD:"
           echo ""
-          echo "   1. Vá para a aba 'Summary' deste workflow"
-          echo "   2. Baixe o artifact: credentials-${{ github.actor }}-${{ github.run_id }}"
-          echo "   3. Abra o arquivo connection-info.txt"
-          echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo ""
-          echo "📖 Como conectar:"
-          echo ""
-          echo "   1. Baixe o RustDesk: https://rustdesk.com/download"
-          echo "   2. Abra o RustDesk e digite o ID: ${{ env.RUSTDESK_ID }}"
-          echo "   3. Digite a senha do artifact"
-          echo "   4. Clique em Connect!"
+          echo "   1. Go to the 'Summary' tab of this workflow"
+          echo "   2. Download artifact: credentials-${{ github.actor }}-${{ github.run_id }}"
+          echo "   3. Open the connection-info.txt file"
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
-          echo "⏱️  Sessão ativa por ${{ env.SESSION_DURATION }} hora(s)"
+          echo "📖 How to connect:"
           echo ""
-          echo "🔒 SEGURANÇA: A senha NÃO é exibida nos logs."
-          echo "   Apenas você pode baixar o artifact com as credenciais."
+          echo "   1. Download RustDesk: https://rustdesk.com/download"
+          echo "   2. Open RustDesk and enter ID: ${{ env.RUSTDESK_ID }}"
+          echo "   3. Enter the password from the artifact"
+          echo "   4. Click Connect!"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "🎮 Parsec is also installed! Open it from Applications if you prefer."
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "⏱️  Session active for ${{ env.SESSION_DURATION }} hour(s)"
+          echo ""
+          echo "🔒 SECURITY: Password is NOT displayed in logs."
+          echo "   Only you can download the artifact with credentials."
           echo ""
 
-      - name: ⏱️ Manter Sessão Ativa
+      - name: ⏱️ Keep Session Alive
         run: |
           chmod +x scripts/keep-alive.sh
           
