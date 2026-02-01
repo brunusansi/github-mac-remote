@@ -1,0 +1,19 @@
+GITHUB MAC REMOTE - CONNECTION INFO (RUSTDESK)
+==============================================
+
+RustDesk Credentials:
+  ID: 157232030
+  Password: ulA8JY1CXTsR
+
+How to Connect:
+1. Download RustDesk from: https://rustdesk.com/download
+2. Install and open RustDesk on your computer
+3. Enter the ID shown above
+4. Enter the password shown above
+5. Click Connect!
+
+Advantages of RustDesk:
+- No tunnel needed (uses public relay servers)
+- Lower latency than VNC over tunnel
+- Works from anywhere
+- Cross-platform client

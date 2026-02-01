@@ -67,8 +67,13 @@ jobs:
         run: |
           chmod +x scripts/setup-rustdesk.sh
           
-          # Gerar senha
+          # Gerar senha segura
           RUSTDESK_PASSWORD=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12)
+          
+          # Mascarar a senha nos logs do GitHub Actions
+          echo "::add-mask::${RUSTDESK_PASSWORD}"
+          
+          # Salvar como variável de ambiente (mascarada)
           echo "RUSTDESK_PASSWORD=${RUSTDESK_PASSWORD}" >> $GITHUB_ENV
           
           export RUSTDESK_PASSWORD
@@ -99,31 +104,48 @@ jobs:
             fi
           fi
 
-      - name: 💾 Salvar Credenciais
+      - name: 💾 Salvar Credenciais (Arquivo Privado)
         run: |
           mkdir -p credentials
+          
+          # Criar arquivo com credenciais (NÃO exibir no log)
           cat > credentials/connection-info.txt << EOF
           ════════════════════════════════════════════════════════════
             SESSÃO ESTENDIDA - Cadeia ${{ env.CURRENT_CHAIN }}/${{ env.MAX_CHAINS }}
           ════════════════════════════════════════════════════════════
           
-          RustDesk ID: ${{ env.RUSTDESK_ID }}
-          Senha: ${{ env.RUSTDESK_PASSWORD }}
+          Iniciado por: ${{ github.actor }}
+          Data/Hora: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          Run ID: ${{ github.run_id }}
+          
+          ────────────────────────────────────────────────────────────
+          Credenciais RustDesk:
+          ────────────────────────────────────────────────────────────
+          
+            ID:    ${{ env.RUSTDESK_ID }}
+            Senha: ${{ env.RUSTDESK_PASSWORD }}
           
           ────────────────────────────────────────────────────────────
           Como Conectar:
+          ────────────────────────────────────────────────────────────
+          
           1. Baixe o RustDesk: https://rustdesk.com/download
           2. Digite o ID e senha acima
           3. Clique Connect!
           
           ⚠️  Nova cadeia = novas credenciais!
+          
+          ════════════════════════════════════════════════════════════
+          ⚠️  ATENÇÃO: Este arquivo contém credenciais sensíveis.
+              Não compartilhe com terceiros.
           ════════════════════════════════════════════════════════════
           EOF
 
       - name: 📦 Upload Credentials Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: connection-credentials-chain-${{ env.CURRENT_CHAIN }}
+          # Nome do artifact inclui o usuário e cadeia para identificação
+          name: credentials-${{ github.actor }}-chain${{ env.CURRENT_CHAIN }}-${{ github.run_id }}
           path: credentials/
           retention-days: 1
 
@@ -134,15 +156,23 @@ jobs:
           echo "║   🔗 SESSÃO ESTENDIDA - Cadeia ${{ env.CURRENT_CHAIN }}/${{ env.MAX_CHAINS }}                          ║"
           echo "╚══════════════════════════════════════════════════════════════════╝"
           echo ""
+          echo "👤 Sessão iniciada por: ${{ github.actor }}"
+          echo ""
           echo "🔑 RustDesk ID: ${{ env.RUSTDESK_ID }}"
-          echo "🔐 Senha: ${{ env.RUSTDESK_PASSWORD }}"
+          echo ""
+          echo "🔐 Senha: ████████████ (protegida)"
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
-          echo "📖 Como conectar:"
-          echo "   1. Baixe o RustDesk: https://rustdesk.com/download"
-          echo "   2. Digite o ID e senha acima"
-          echo "   3. Clique Connect!"
+          echo "📥 COMO OBTER A SENHA:"
+          echo ""
+          echo "   1. Vá para a aba 'Summary' deste workflow"
+          echo "   2. Baixe o artifact: credentials-${{ github.actor }}-chain${{ env.CURRENT_CHAIN }}-${{ github.run_id }}"
+          echo "   3. Abra o arquivo connection-info.txt"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "🔒 SEGURANÇA: A senha NÃO é exibida nos logs."
           echo ""
 
       - name: ⏱️ Manter Sessão Ativa (com trigger de cadeia)

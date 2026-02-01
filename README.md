@@ -54,12 +54,13 @@ Baixe em: **https://rustdesk.com/download**
 ### Passo 4: Conecte
 
 1. Aguarde o workflow chegar no passo **"Keep Session Alive"**
-2. Veja os **logs** para obter:
-   - **RustDesk ID**: O ID de 9 dígitos
-   - **Password**: A senha de acesso
-3. Abra o **RustDesk** no seu computador
-4. Digite o ID e a senha
-5. **Conectado!** 🎉
+2. Nos **logs**, veja o **RustDesk ID** (9 dígitos)
+3. Baixe o **artifact** `credentials-<seu-usuario>-<run-id>` na aba Summary
+4. Abra o arquivo para ver a **senha**
+5. No **RustDesk**, digite o ID e a senha
+6. **Conectado!** 🎉
+
+> 🔒 **Segurança**: A senha NÃO aparece nos logs. Apenas no artifact privado.
 
 ---
 
@@ -148,23 +149,58 @@ Testamos várias opções de acesso remoto. Apenas o **RustDesk** funciona de fo
 
 ---
 
-## 🔐 Segurança
+## 🔐 Segurança e Privacidade
 
-### Proteção de Credenciais
+Este projeto foi desenvolvido com **segurança em mente**, especialmente para ambientes com múltiplos usuários.
 
-- **Senha RustDesk**: Exibida apenas nos logs (visível só para quem tem acesso)
-- **Sessão Efêmera**: Tudo é destruído quando o workflow termina
-- **ID Único**: Cada sessão gera um novo ID
+### 🛡️ Proteção de Credenciais
 
-### Para Repositórios Públicos
+| Recurso | Implementação |
+|---------|---------------|
+| **Senha Mascarada** | A senha usa `::add-mask::` do GitHub Actions e NUNCA aparece nos logs |
+| **Artifact Privado** | Credenciais salvas em artifact baixável, não nos logs |
+| **Identificação** | Artifact nomeado com o usuário que iniciou: `credentials-<usuario>-<run-id>` |
+| **Sessão Efêmera** | Tudo é destruído quando o workflow termina |
+| **ID Único** | Cada sessão gera um novo ID e senha |
 
-Se seu repositório é público:
-1. Qualquer pessoa pode ver os logs (incluindo ID e senha)
-2. Para maior segurança, use repositório **privado**
+### 🔒 Isolamento entre Usuários
 
-### Recomendação
+Em repositórios com múltiplos colaboradores:
 
-Para máxima segurança, mantenha o repositório **privado**. Isso garante que logs e credenciais sejam visíveis apenas para colaboradores.
+- **Cada usuário** só consegue identificar seu próprio artifact pelo nome
+- **Senhas não vazam** nos logs públicos do workflow
+- **Sessões são independentes** - cada execução tem credenciais únicas
+
+### 📋 Fluxo de Segurança
+
+```
+1. Usuário inicia workflow
+   ↓
+2. Senha gerada com openssl (12 caracteres alfanuméricos)
+   ↓
+3. Senha mascarada com ::add-mask:: (não aparece em nenhum log)
+   ↓
+4. Credenciais salvas em arquivo dentro do artifact
+   ↓
+5. Artifact nomeado: credentials-{usuario}-{run_id}
+   ↓
+6. Apenas quem tem acesso ao repositório pode baixar artifacts
+```
+
+### ⚠️ Considerações
+
+| Cenário | Nível de Segurança |
+|---------|-------------------|
+| **Repositório Privado** | 🟢 Alto - Apenas colaboradores veem artifacts |
+| **Repositório Público** | 🟡 Médio - Qualquer pessoa pode baixar artifacts |
+| **Org com múltiplos membros** | 🟢 Alto - Cada um baixa apenas seu artifact |
+
+### 📌 Recomendações
+
+1. **Use repositório privado** para máxima segurança
+2. **Não compartilhe** o arquivo de credenciais
+3. **Sessões são temporárias** - credenciais expiram quando o workflow termina
+4. **Para organizações**: Cada membro deve baixar apenas artifacts com seu nome
 
 ---
 
