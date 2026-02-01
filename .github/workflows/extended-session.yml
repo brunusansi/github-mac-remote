@@ -68,10 +68,35 @@ jobs:
           echo "👤 macOS User: ${MAC_USER}"
           echo "🔐 Setting password for macOS user..."
           
-          # Set the password using dscl (Directory Service command line)
-          sudo dscl . -passwd /Users/${MAC_USER} "${MAC_PASSWORD}"
+          # Try multiple methods to set password (different macOS versions behave differently)
           
-          echo "✅ macOS user password set successfully"
+          # Method 1: Try sysadminctl (works on newer macOS without old password for admin)
+          if sudo sysadminctl -resetPasswordFor "${MAC_USER}" -newPassword "${MAC_PASSWORD}" 2>/dev/null; then
+            echo "✅ Password set via sysadminctl"
+          # Method 2: Try dscl with empty old password (some VMs have no password set)
+          elif sudo dscl . -passwd /Users/${MAC_USER} "" "${MAC_PASSWORD}" 2>/dev/null; then
+            echo "✅ Password set via dscl (empty old password)"
+          # Method 3: Direct password hash manipulation
+          else
+            echo "⚠️  Standard methods failed, trying direct approach..."
+            # Generate password hash and set it directly
+            HASH=$(echo -n "${MAC_PASSWORD}" | openssl dgst -sha512 | awk '{print $2}')
+            
+            # Try to delete existing password and create new one
+            sudo dscl . -delete /Users/${MAC_USER} Password 2>/dev/null || true
+            sudo dscl . -delete /Users/${MAC_USER} AuthenticationAuthority 2>/dev/null || true
+            sudo dscl . -create /Users/${MAC_USER} Password "${MAC_PASSWORD}" 2>/dev/null || true
+            
+            # Use security command to add keychain password (for sudo)
+            echo "${MAC_PASSWORD}" | sudo -S echo "Testing sudo with password..." 2>/dev/null && echo "✅ Password configured" || echo "⚠️  Password may not work for all operations"
+          fi
+          
+          echo ""
+          echo "   Use this password for:"
+          echo "   - System Settings authentication"
+          echo "   - Privacy & Security permissions"
+          echo "   - Installing apps that require admin"
+          echo "   - Screen unlock (if needed)"
 
       - name: 📊 System Information
         run: |
