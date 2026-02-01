@@ -52,73 +52,51 @@ jobs:
 
       - name: 🔐 Set macOS User Password
         run: |
-          # Get current username (runner) and admin username (usually Anka)
+          # Get current username
           CURRENT_USER=$(whoami)
-          echo "CURRENT_USER=${CURRENT_USER}" >> $GITHUB_ENV
-          
-          # Find the admin user (usually "anka" on GitHub Actions macOS VMs)
-          ADMIN_USER=$(dscl . -list /Users | grep -i anka | head -1 || echo "")
-          
-          if [ -z "$ADMIN_USER" ]; then
-            ADMIN_USER=$(dscl . -read /Groups/admin GroupMembership 2>/dev/null | tr ' ' '\n' | grep -v "^GroupMembership:" | grep -v "^root$" | grep -v "^$CURRENT_USER$" | head -1 || echo "")
-          fi
-          
-          if [ -z "$ADMIN_USER" ]; then
-            ADMIN_USER="$CURRENT_USER"
-          fi
-          
-          echo "MAC_USER=${ADMIN_USER}" >> $GITHUB_ENV
+          echo "MAC_USER=${CURRENT_USER}" >> $GITHUB_ENV
           echo "👤 Current user: ${CURRENT_USER}"
-          echo "👑 Admin user: ${ADMIN_USER}"
           
-          # Generate a secure password
+          # Add current user to admin group (so they can authenticate in System Settings)
+          echo "👑 Adding ${CURRENT_USER} to admin group..."
+          sudo dseditgroup -o edit -a "${CURRENT_USER}" -t user admin
+          
+          # Verify admin membership
+          if dseditgroup -o checkmember -m "${CURRENT_USER}" admin 2>/dev/null; then
+            echo "✅ ${CURRENT_USER} is now an admin"
+          else
+            echo "⚠️  Could not add to admin group"
+          fi
+          
+          # Generate a secure password for the current user
           MAC_PASSWORD=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12)
           
           # Mask password in logs
           echo "::add-mask::${MAC_PASSWORD}"
           echo "MAC_PASSWORD=${MAC_PASSWORD}" >> $GITHUB_ENV
           
-          echo "🔐 Attempting to set password for admin user (${ADMIN_USER})..."
+          echo "🔐 Setting password for ${CURRENT_USER}..."
           
-          # Known default passwords for Anka VMs
-          KNOWN_PASSWORDS=("admin" "anka" "" "password" "123456")
-          PASSWORD_SET=false
-          
-          for OLD_PASS in "${KNOWN_PASSWORDS[@]}"; do
-            if [ "$PASSWORD_SET" = false ]; then
-              # Try sysadminctl with known old password
-              if sudo sysadminctl -resetPasswordFor "${ADMIN_USER}" -newPassword "${MAC_PASSWORD}" -adminUser "${ADMIN_USER}" -adminPassword "${OLD_PASS}" 2>/dev/null; then
-                echo "✅ Password set via sysadminctl (old password found)"
-                PASSWORD_SET=true
-              # Try dscl with known old password
-              elif sudo dscl . -passwd /Users/${ADMIN_USER} "${OLD_PASS}" "${MAC_PASSWORD}" 2>/dev/null; then
-                echo "✅ Password set via dscl (old password: '${OLD_PASS:-empty}')"
-                PASSWORD_SET=true
-              fi
-            fi
-          done
-          
-          # If no known password worked, try without old password
-          if [ "$PASSWORD_SET" = false ]; then
-            if sudo sysadminctl -resetPasswordFor "${ADMIN_USER}" -newPassword "${MAC_PASSWORD}" 2>/dev/null; then
-              echo "✅ Password set via sysadminctl (no old password needed)"
-              PASSWORD_SET=true
-            fi
-          fi
-          
-          if [ "$PASSWORD_SET" = false ]; then
-            echo ""
-            echo "⚠️  Could not change the admin password automatically."
-            echo "   The admin user may have an unknown pre-existing password."
-            echo ""
-            echo "   Common default passwords to try manually:"
-            echo "   - admin"
-            echo "   - anka"
-            echo "   - (empty/no password)"
+          # The runner user typically has no password set, so we can set one directly
+          # Try with empty old password first (most likely for runner user)
+          if sudo dscl . -passwd /Users/${CURRENT_USER} "" "${MAC_PASSWORD}" 2>/dev/null; then
+            echo "✅ Password set successfully (user had no password)"
+          elif sudo sysadminctl -resetPasswordFor "${CURRENT_USER}" -newPassword "${MAC_PASSWORD}" 2>/dev/null; then
+            echo "✅ Password set via sysadminctl"
+          else
+            # Try to create password directly using shadow hash
+            echo "⚠️  Standard methods failed, trying alternative..."
+            # This works because we have sudo access
+            sudo dscl . -passwd /Users/${CURRENT_USER} "${MAC_PASSWORD}" 2>/dev/null && \
+              echo "✅ Password set via direct dscl" || \
+              echo "⚠️  Could not set password automatically"
           fi
           
           echo ""
-          echo "   Admin user for System Settings: ${ADMIN_USER}"
+          echo "   Use this password for:"
+          echo "   - System Settings authentication"
+          echo "   - Privacy & Security permissions"
+          echo "   - Parsec permissions setup"
 
       - name: 📊 System Information
         run: |
