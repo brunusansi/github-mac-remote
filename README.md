@@ -15,7 +15,7 @@ Turn GitHub Actions runners into remotely accessible Macs. An alternative to ser
 | 🖥️ **Real Mac ARM64** | Virtualized Mac Mini with Apple Silicon |
 | 🦀 **RustDesk** | Remote access without complex setup |
 | 🎮 **Parsec Pre-installed** | Optional low-latency alternative |
-| 🔐 **macOS Password** | System authentication password included |
+| 🔐 **Admin User Created** | Dedicated admin account for system authentication |
 | ⏱️ **Configurable Sessions** | From 1h to 6h per session |
 | 🔗 **Extended Sessions** | Auto-chaining for >6h sessions |
 | 📊 **Multiple Sizes** | Standard, Large, XLarge |
@@ -74,11 +74,13 @@ Download from: **https://rustdesk.com/download**
 1. Connect via RustDesk first
 2. Open **Parsec** from Applications
 3. Log in with your Parsec account
-4. When prompted for permissions (Input Monitoring, Screen Recording), use the **macOS password** from the credentials file
+4. When prompted for permissions (Input Monitoring, Screen Recording):
+   - **User:** `yourname` (the admin user created by the workflow)
+   - **Password:** Use the macOS password from the credentials file
 5. Enable hosting in Parsec settings
 6. Connect from your other device!
 
-> ℹ️ Parsec cannot be auto-configured due to macOS VM security restrictions, but it works great when set up manually. The macOS password is needed to grant system permissions.
+> ℹ️ The workflow creates a dedicated admin user (`yourname`) that appears in Users & Groups and can authenticate in Privacy & Security dialogs.
 
 ---
 
@@ -160,7 +162,7 @@ This project was built with **security in mind**, especially for multi-user envi
 | **Masked Passwords** | Uses `::add-mask::` - passwords NEVER appear in logs |
 | **Private Artifact** | Credentials saved in downloadable artifact, not in logs |
 | **User Identification** | Artifact named with initiating user: `credentials-<user>-<run-id>` |
-| **macOS Password** | System auth password for Privacy & Security dialogs |
+| **Dedicated Admin User** | Creates `yourname` admin user for Privacy & Security dialogs |
 | **Ephemeral Session** | Everything is destroyed when workflow ends |
 | **Unique Credentials** | Each session generates new ID and passwords |
 
@@ -177,17 +179,19 @@ In repositories with multiple collaborators:
 ```
 1. User starts workflow
    ↓
-2. macOS user password generated (12 alphanumeric characters)
+2. Admin user 'yourname' created with UID >= 501 (visible in GUI)
    ↓
-3. RustDesk password generated (12 alphanumeric characters)
+3. macOS password generated for admin user (12 alphanumeric characters)
    ↓
-4. Both passwords masked with ::add-mask:: (won't appear in any log)
+4. RustDesk password generated (12 alphanumeric characters)
    ↓
-5. Credentials saved to file inside artifact
+5. Both passwords masked with ::add-mask:: (won't appear in any log)
    ↓
-6. Artifact named: credentials-{user}-{run_id}
+6. Credentials saved to file inside artifact
    ↓
-7. Only those with repository access can download artifacts
+7. Artifact named: credentials-{user}-{run_id}
+   ↓
+8. Only those with repository access can download artifacts
 ```
 
 ### ⚠️ Considerations
@@ -254,6 +258,14 @@ In repositories with multiple collaborators:
 2. Configure larger runners in Settings → Actions → Runners
 3. Runners need to be enabled for the repository
 
+### "Parsec permissions not working"
+
+1. When the authentication dialog appears, use:
+   - **User:** `yourname` (not Anka or runner)
+   - **Password:** The macOS password from the credentials file
+2. The user `yourname` should appear in Users & Groups as an Admin
+3. If the user doesn't appear, the workflow may have failed - check the logs
+
 ---
 
 ## ⚖️ Responsible Use
@@ -279,8 +291,10 @@ Each session provides two sets of credentials in the artifact:
 
 | Credential | Purpose |
 |------------|---------|
-| **macOS User + Password** | System authentication (Privacy & Security, app installs, sudo) |
+| **macOS Admin User (`yourname`)** | System authentication (Privacy & Security, app installs) |
 | **RustDesk ID + Password** | Remote desktop connection |
+
+> 💡 The admin user `yourname` is created specifically to authenticate in GUI dialogs. It appears in Users & Groups alongside the default Anka user.
 
 ### Environment Variables
 
