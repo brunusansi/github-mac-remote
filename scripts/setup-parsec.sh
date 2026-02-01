@@ -26,34 +26,48 @@ fi
 
 # Download and install Parsec
 echo "📦 Downloading Parsec..."
-PARSEC_DMG="/tmp/parsec.dmg"
-curl -L "https://builds.parsec.app/package/parsec-macos.dmg" -o "${PARSEC_DMG}"
+PARSEC_PKG="/tmp/parsec.pkg"
 
-echo "📦 Installing Parsec..."
-hdiutil attach "${PARSEC_DMG}" -nobrowse -quiet || true
-sleep 2
+# Note: Parsec now uses .pkg format instead of .dmg
+curl -L "https://builds.parsec.app/package/parsec-macos.pkg" -o "${PARSEC_PKG}" --progress-bar
 
-# Try to copy from mounted volume
-if [ -d "/Volumes/Parsec/Parsec.app" ]; then
-    cp -R "/Volumes/Parsec/Parsec.app" /Applications/
-    hdiutil detach "/Volumes/Parsec" -quiet || true
-else
-    echo "⚠️ Could not mount DMG, trying alternative..."
-    # Try to find any Parsec volume
-    PARSEC_VOL=$(ls -d /Volumes/Parsec* 2>/dev/null | head -1)
-    if [ -n "$PARSEC_VOL" ] && [ -d "$PARSEC_VOL/Parsec.app" ]; then
-        cp -R "$PARSEC_VOL/Parsec.app" /Applications/
-        hdiutil detach "$PARSEC_VOL" -quiet || true
-    fi
-fi
+# Verify download
+FILE_SIZE=$(stat -f%z "${PARSEC_PKG}" 2>/dev/null || stat --printf="%s" "${PARSEC_PKG}" 2>/dev/null || echo "0")
+echo "   Downloaded: ${FILE_SIZE} bytes"
 
-# Verify installation
-if [ ! -d "/Applications/Parsec.app" ]; then
-    echo "❌ Failed to install Parsec"
+if [ "${FILE_SIZE}" -lt 1000000 ]; then
+    echo "❌ Download failed - file too small (${FILE_SIZE} bytes)"
+    echo "   Expected ~3.4MB for Parsec installer"
+    echo "   Content of downloaded file:"
+    head -c 500 "${PARSEC_PKG}" || true
     exit 1
 fi
 
-echo "✅ Parsec installed"
+echo "✅ Download complete (${FILE_SIZE} bytes)"
+
+# Install using installer command (for .pkg files)
+echo "📦 Installing Parsec..."
+sudo installer -pkg "${PARSEC_PKG}" -target / || {
+    echo "❌ Failed to install Parsec via installer command"
+    exit 1
+}
+
+# Verify installation
+echo "🔍 Checking installation..."
+sleep 2
+
+if [ -d "/Applications/Parsec.app" ]; then
+    echo "✅ Parsec installed to /Applications/Parsec.app"
+    ls -la /Applications/Parsec.app/Contents/MacOS/ 2>/dev/null || true
+else
+    echo "⚠️ Parsec.app not in /Applications, searching..."
+    # Check common locations
+    find /Applications -name "Parsec*" -type d 2>/dev/null || true
+    find /usr/local -name "parsec*" 2>/dev/null || true
+    
+    echo "❌ Failed to find Parsec installation"
+    exit 1
+fi
 
 # Create config directory
 PARSEC_CONFIG_DIR="$HOME/.parsec"
