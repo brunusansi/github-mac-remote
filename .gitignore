@@ -1,18 +1,21 @@
-# OpenSpec artifacts (development only)
-openspec/
+# Temporary directories
+temp/
+temp3/
+tmp/
 
-# OpenCode/OpenSpec config (local development)
-.opencode/
-.github/prompts/
-.github/skills/
-.github/copilot-instructions.md
+# Credentials (nunca commitar)
+credentials/
+*.credentials
+connection-info.txt
 
-# OS generated files
+# macOS
 .DS_Store
-Thumbs.db
+*.swp
+
+# IDE
+.idea/
+.vscode/
+*.code-workspace
 
 # Logs
 *.log
-
-# Temporary files
-/tmp/
