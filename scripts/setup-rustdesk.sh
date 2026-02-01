@@ -128,32 +128,32 @@ sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db \
     "INSERT OR REPLACE INTO access VALUES('kTCCServiceScreenCapture','com.rustdesk.RustDesk',0,2,4,1,NULL,NULL,0,'UNUSED',NULL,0,$(date +%s));" 2>/dev/null || \
     echo "⚠️ Could not set screen capture permissions (expected on VM)"
 
-# Start RustDesk
+# Start RustDesk FIRST, before trying to set password
 echo "🚀 Starting RustDesk..."
-open -a RustDesk &
-sleep 5
 
-# Try to set password via command line
+# Use full path to open the app
+/Applications/RustDesk.app/Contents/MacOS/rustdesk &
+RUSTDESK_PID=$!
+
+echo "   Waiting for RustDesk to initialize (PID: $RUSTDESK_PID)..."
+sleep 10
+
+# Verify RustDesk is running
+if pgrep -f "RustDesk" > /dev/null; then
+    echo "   ✅ RustDesk is running"
+else
+    echo "   ⚠️ RustDesk not detected, trying alternative launch..."
+    open -a RustDesk
+    sleep 5
+fi
+
+# Now try to set password via command line (RustDesk must be running first!)
 echo "🔑 Setting up password..."
 
-# RustDesk CLI commands (if available)
-if [ -f "/Applications/RustDesk.app/Contents/MacOS/rustdesk" ]; then
-    RUSTDESK_CLI="/Applications/RustDesk.app/Contents/MacOS/rustdesk"
+RUSTDESK_CLI="/Applications/RustDesk.app/Contents/MacOS/rustdesk"
+if [ -f "${RUSTDESK_CLI}" ]; then
     
-    # Try to set permanent password with sudo (required for RustDesk)
-    echo "   Attempting to set password with sudo..."
-    if sudo "${RUSTDESK_CLI}" --password "${RUSTDESK_PASSWORD}"; then
-        echo "   ✅ Password set successfully via CLI"
-        PASSWORD_SET=true
-    else
-        echo "   ⚠️ Failed to set password via CLI, will try alternative methods..."
-        PASSWORD_SET=false
-    fi
-    
-    # Give RustDesk time to write config
-    sleep 3
-    
-    # Get the RustDesk ID
+    # Get the RustDesk ID first (this also confirms RustDesk is initialized)
     RUSTDESK_ID=$("${RUSTDESK_CLI}" --get-id 2>/dev/null || echo "")
     
     if [ -n "${RUSTDESK_ID}" ]; then
@@ -161,38 +161,56 @@ if [ -f "/Applications/RustDesk.app/Contents/MacOS/rustdesk" ]; then
         echo "   ✅ RustDesk ID: ${RUSTDESK_ID}"
     fi
     
-    # If password setting failed, try to get RustDesk's auto-generated password
-    if [ "${PASSWORD_SET}" != "true" ]; then
-        echo "   🔍 Looking for RustDesk's auto-generated password..."
-        
-        # Method 1: Try --get-password CLI option
-        AUTO_PASSWORD=$(sudo "${RUSTDESK_CLI}" --get-password 2>/dev/null || echo "")
-        
-        # Method 2: Check config file for password
-        if [ -z "${AUTO_PASSWORD}" ]; then
-            CONFIG_FILE="${RUSTDESK_CONFIG_DIR}/RustDesk.toml"
-            if [ -f "${CONFIG_FILE}" ]; then
-                AUTO_PASSWORD=$(grep -E "^password\s*=" "${CONFIG_FILE}" 2>/dev/null | cut -d"'" -f2 || echo "")
-            fi
-        fi
-        
-        # Method 3: Check RustDesk2.toml
-        if [ -z "${AUTO_PASSWORD}" ]; then
-            CONFIG_FILE="${RUSTDESK_CONFIG_DIR}/RustDesk2.toml"
-            if [ -f "${CONFIG_FILE}" ]; then
-                AUTO_PASSWORD=$(grep -E "^password\s*=" "${CONFIG_FILE}" 2>/dev/null | cut -d"'" -f2 || echo "")
-            fi
-        fi
-        
-        # If we found an auto-generated password, use it
-        if [ -n "${AUTO_PASSWORD}" ]; then
-            RUSTDESK_PASSWORD="${AUTO_PASSWORD}"
+    # Now try to set permanent password with sudo
+    # RustDesk needs to be running for this to work
+    echo "   Attempting to set password..."
+    
+    # Method 1: Try direct password setting
+    PASSWORD_OUTPUT=$(sudo "${RUSTDESK_CLI}" --password "${RUSTDESK_PASSWORD}" 2>&1)
+    echo "   Password command output: ${PASSWORD_OUTPUT}"
+    
+    # Check if it actually worked by looking at the output
+    if echo "${PASSWORD_OUTPUT}" | grep -qi "error\|fail\|denied\|not found"; then
+        echo "   ⚠️ Password setting via CLI may have failed"
+        PASSWORD_SET=false
+    else
+        echo "   ✅ Password command executed"
+        PASSWORD_SET=true
+    fi
+    
+    sleep 3
+    
+    # Try to verify/retrieve the actual password RustDesk is using
+    echo "   🔍 Checking RustDesk's actual password configuration..."
+    
+    # Method: Try --get-password CLI option
+    ACTUAL_PASSWORD=$(sudo "${RUSTDESK_CLI}" --get-password 2>&1 || echo "")
+    echo "   Get-password output: ${ACTUAL_PASSWORD}"
+    
+    # If we got a password from RustDesk, use that instead
+    if [ -n "${ACTUAL_PASSWORD}" ] && ! echo "${ACTUAL_PASSWORD}" | grep -qi "error\|not found\|usage"; then
+        if [ "${ACTUAL_PASSWORD}" != "${RUSTDESK_PASSWORD}" ]; then
+            echo "   📝 RustDesk has a different password than we set"
+            echo "   📝 Using RustDesk's password: ${ACTUAL_PASSWORD}"
+            RUSTDESK_PASSWORD="${ACTUAL_PASSWORD}"
             echo "RUSTDESK_PASSWORD=${RUSTDESK_PASSWORD}" >> $GITHUB_ENV
-            echo "   ✅ Using RustDesk's auto-generated password"
-        else
-            echo "   ⚠️ Could not retrieve password - you may need to check RustDesk UI"
         fi
     fi
+    
+    # Also dump what's in the config directory for debugging
+    echo ""
+    echo "   📂 Checking config directory structure..."
+    ls -la "${RUSTDESK_CONFIG_DIR}/" 2>/dev/null || echo "   Config dir not accessible"
+    
+    # Check for any files RustDesk created
+    echo ""
+    echo "   📂 All RustDesk config files:"
+    find "${RUSTDESK_CONFIG_DIR}" -type f 2>/dev/null | while read f; do
+        echo "   File: $f"
+        echo "   Contents:"
+        cat "$f" 2>/dev/null | head -20
+        echo ""
+    done
 fi
 
 # Check if RustDesk is running
