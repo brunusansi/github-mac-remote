@@ -1,8 +1,8 @@
 # 🍎 GitHub Mac Remote
 
-> **Transforme runners GitHub Actions em Mac Minis remotos acessíveis**
+> **Turn GitHub Actions runners into accessible remote Mac Minis**
 
-Acesse Mac Minis com Apple Silicon (M1/M2/M3) através do GitHub Actions. Similar ao MacStadium, mas usando a infraestrutura do GitHub.
+Access Mac Minis with Apple Silicon (M1/M2/M3) through GitHub Actions. Similar to MacStadium, but using GitHub's infrastructure.
 
 [![Start Mac Session](https://img.shields.io/badge/▶️_Start_Mac_Session-blue?style=for-the-badge)](../../actions/workflows/mac-session.yml)
 [![Extended Session](https://img.shields.io/badge/🔗_Extended_Session-green?style=for-the-badge)](../../actions/workflows/extended-session.yml)
@@ -12,239 +12,310 @@ Acesse Mac Minis com Apple Silicon (M1/M2/M3) através do GitHub Actions. Simila
 
 ## ✨ Features
 
-- 🖥️ **Mac ARM64 Real** - Não é VM, é Mac Mini físico com Apple Silicon
-- 🌐 **Acesso Remoto** - Via VNC (nativo) ou Parsec
-- ⏱️ **Sessões Configuráveis** - De 1h até 6h (ou mais com chains)
-- 🔗 **Sessões Estendidas** - Chain automático para sessões >6h
-- 🔐 **Sem Contas Extras** - VNC funciona com IP + senha
-- 📊 **Múltiplos Tiers** - Standard, Large, XLarge
+- 🖥️ **Real Mac ARM64** - Not a VM, physical Mac Mini with Apple Silicon
+- 🌐 **Remote Access** - Via VNC (native) or Parsec
+- ⏱️ **Configurable Sessions** - From 1h to 6h (or more with chaining)
+- 🔗 **Extended Sessions** - Auto-chain for sessions >6h
+- 🔐 **Secure Credentials** - Password stored in private artifact
+- 📊 **Multiple Tiers** - Standard, Large, XLarge
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Usar este repositório
+### 1. Use this repository
 
-**Opção A: Fork** (recomendado)
+**Option A: Fork** (recommended)
 ```
-Fork este repositório para sua conta
-```
-
-**Opção B: Template**
-```
-Use como template para criar novo repositório
+Fork this repository to your account
 ```
 
-### 2. Iniciar uma sessão
+**Option B: Template**
+```
+Use as a template to create a new repository
+```
 
-1. Vá para **Actions** → **"🍎 Start Mac Session"**
-2. Clique em **"Run workflow"**
+### 2. Start a session
+
+1. Go to **Actions** → **"🍎 Start Mac Session"**
+2. Click **"Run workflow"**
 3. Configure:
-   - **Duration**: Tempo da sessão (1-6 horas)
-   - **Runner size**: Tamanho do Mac (veja tabela abaixo)
-   - **Tunnel type**: cloudflared (recomendado) ou ngrok
-4. Clique em **"Run workflow"**
+   - **Duration**: Session time (1-6 hours)
+   - **Runner size**: Mac size (see table below)
+   - **Tunnel type**: cloudflared (recommended) or ngrok
+4. Click **"Run workflow"**
 
-### 3. Conectar
+### 3. Get credentials
 
-Quando o workflow iniciar, você verá no log:
+1. Wait for the workflow to reach "Keep Session Alive" step
+2. Go to the **Summary** tab
+3. Download the **"connection-credentials"** artifact
+4. Open the `.txt` file to see VNC password
 
+### 4. Connect
+
+#### Install cloudflared (one time):
+
+**Windows (PowerShell as Admin):**
+```powershell
+winget install Cloudflare.cloudflared
 ```
-╔══════════════════════════════════════════════════════════════════╗
-║              🍎 GITHUB MAC REMOTE - READY TO CONNECT             ║
-╚══════════════════════════════════════════════════════════════════╝
 
-🖥️  VNC Credentials:
-   ├─ User: runner
-   └─ Password: xK7mP9nQ2wLs
-
-🌐 Tunnel URL: https://example-tunnel.trycloudflare.com
+**macOS:**
+```bash
+brew install cloudflared
 ```
 
-#### Conectar com Cloudflared:
+**Linux:**
+```bash
+# Debian/Ubuntu
+curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb
+sudo dpkg -i cloudflared.deb
+```
 
-1. **Instale cloudflared** no seu computador:
-   - macOS: `brew install cloudflared`
-   - Windows: [Download](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/)
-   - Linux: `sudo apt install cloudflared`
+#### Create local tunnel:
+```bash
+cloudflared access tcp --hostname <TUNNEL_URL_FROM_LOGS> --url localhost:5900
+```
 
-2. **Crie o túnel local**:
-   ```bash
-   cloudflared access tcp --hostname <tunnel-url> --url localhost:5900
-   ```
+#### Connect VNC client:
+- **Windows**: Use [RealVNC Viewer](https://www.realvnc.com/en/connect/download/viewer/) → Connect to `localhost:5900`
+- **macOS**: Open Finder → Go → Connect to Server → `vnc://localhost:5900`
+- **Linux**: Use Remmina or `vncviewer localhost:5900`
 
-3. **Conecte seu cliente VNC** a `localhost:5900`
-   - macOS: `open vnc://localhost:5900`
-   - Windows: Use RealVNC, TightVNC, ou outro cliente
-   - Linux: Use Remmina ou vinagre
-
-4. **Digite a senha** exibida no log
+Enter the password from the artifact file.
 
 ---
 
 ## 📊 Hardware Tiers
 
-| Tier | Runner | vCPUs | RAM | Chip | Planos |
-|------|--------|-------|-----|------|--------|
+| Tier | Runner | vCPUs | RAM | Chip | Plans |
+|------|--------|-------|-----|------|-------|
 | **Standard** | `macos-14` | 3 | 7 GB | M1 | Free, Pro, Team, Enterprise |
 | **Large** | `macos-14-large` | 12 | 30 GB | M1 Pro | Team, Enterprise |
 | **XLarge** | `macos-14-xlarge` | 24 | 70 GB | M1 Max | Enterprise |
 
-> ⚠️ Runners Large e XLarge requerem planos pagos do GitHub
+> ⚠️ Large and XLarge runners require paid GitHub plans
 
 ---
 
-## ⏱️ Limites de Tempo
+## ⏱️ Time Limits
 
-| Plano | Minutos/mês | Max por sessão |
-|-------|-------------|----------------|
-| **Free** | 2.000 min | 6 horas |
-| **Pro** | 3.000 min | 6 horas |
-| **Team** | 3.000 min | 6 horas |
-| **Enterprise** | Customizado | 6 horas |
+| Plan | Minutes/month | Max per session |
+|------|---------------|-----------------|
+| **Free** | 2,000 min | 6 hours |
+| **Pro** | 3,000 min | 6 hours |
+| **Team** | 3,000 min | 6 hours |
+| **Enterprise** | Custom | 6 hours |
 
-### Sessões Estendidas (>6 horas)
+### Extended Sessions (>6 hours)
 
-Use o workflow **"🔗 Extended Mac Session"** para sessões mais longas:
+Use the **"🔗 Extended Mac Session"** workflow for longer sessions:
 
-1. Configure `max_chains` (máximo 3 = 18 horas)
-2. O sistema dispara automaticamente nova sessão antes do timeout
-3. Novas credenciais são geradas para cada chain
-4. ~30 segundos de downtime entre chains
-
----
-
-## 🎮 Parsec (Opcional)
-
-Para melhor performance gráfica, use o Parsec:
-
-### Configurar Parsec
-
-1. **Obtenha seu Session ID**:
-   ```bash
-   curl -X POST https://kessel-api.parsecgaming.com/v1/auth \
-     -H 'Content-Type: application/json' \
-     -d '{"email":"seu@email.com","password":"suasenha","tfa":"123456"}'
-   ```
-   
-   > Nota: Se você tem 2FA, inclua o código no campo `tfa`
-
-2. **Adicione aos Secrets**:
-   - Vá em **Settings** → **Secrets** → **Actions**
-   - Adicione: `PARSEC_SESSION_ID` = seu session_id
-
-3. **Use o workflow Parsec**:
-   - **Actions** → **"🎮 Parsec Mac Session"**
-
-### Vantagens do Parsec
-
-- ✅ Melhor qualidade de vídeo
-- ✅ Menor latência
-- ✅ Suporte a gamepad
-- ❌ Requer conta Parsec
-- ❌ Configuração mais complexa
+1. Set `max_chains` (max 3 = 18 hours total)
+2. System automatically triggers new session before timeout
+3. New credentials generated for each chain
+4. ~30 seconds downtime between chains
 
 ---
 
-## 📁 Estrutura do Projeto
+## 🎮 Parsec (Optional - Better Performance)
+
+Parsec provides lower latency and better video quality than VNC.
+
+### Setup Parsec (Windows)
+
+#### Step 1: Get your Session ID
+
+**Option A: From Parsec app files**
+
+1. Open File Explorer
+2. Navigate to `%AppData%\Parsec\`
+3. Look for your session info in the config files
+
+**Option B: Via PowerShell (recommended)**
+
+```powershell
+# Replace with your actual credentials
+$body = @{
+    email = "your@email.com"
+    password = "yourpassword"
+    tfa = "123456"  # Your 2FA code (get it fresh, expires in 30 seconds!)
+} | ConvertTo-Json
+
+$response = Invoke-RestMethod -Uri 'https://kessel-api.parsecgaming.com/v1/auth' -Method POST -ContentType 'application/json' -Body $body
+$response.session_id
+```
+
+**Option C: Via Command Prompt (curl)**
+
+First, install curl or use Git Bash:
+```bash
+curl -X POST https://kessel-api.parsecgaming.com/v1/auth \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"your@email.com\",\"password\":\"yourpassword\",\"tfa\":\"123456\"}"
+```
+
+> ⚠️ **Important**: The `tfa` field is your 2FA authenticator code. Get it right before running the command - it expires in 30 seconds!
+
+#### Step 2: Add to GitHub Secrets
+
+1. Go to your repository **Settings** → **Secrets and variables** → **Actions**
+2. Click **"New repository secret"**
+3. Name: `PARSEC_SESSION_ID`
+4. Value: Your session_id from Step 1
+5. Click **"Add secret"**
+
+#### Step 3: Run Parsec Workflow
+
+1. Go to **Actions** → **"🎮 Parsec Mac Session"**
+2. Click **"Run workflow"**
+3. Wait for it to start
+4. Open Parsec app on your computer
+5. Look for the host named `GitHub-Mac-XXXXX` in your computers list
+6. Click to connect!
+
+### Parsec vs VNC Comparison
+
+| Feature | VNC | Parsec |
+|---------|-----|--------|
+| Video Quality | Good | Excellent |
+| Latency | Medium | Low |
+| Audio | No | Yes |
+| Gamepad Support | No | Yes |
+| Requires Account | No | Yes |
+| Setup Complexity | Easy | Medium |
+
+---
+
+## 📁 Project Structure
 
 ```
 .
 ├── .github/
 │   └── workflows/
-│       ├── mac-session.yml        # Sessão simples
-│       ├── extended-session.yml   # Sessão com chain
-│       └── parsec-session.yml     # Sessão com Parsec
+│       ├── mac-session.yml        # Simple session
+│       ├── extended-session.yml   # Session with chaining
+│       └── parsec-session.yml     # Session with Parsec
 ├── scripts/
-│   ├── setup-vnc.sh              # Configura Screen Sharing
-│   ├── setup-tunnel.sh           # Inicia túnel
-│   ├── setup-parsec.sh           # Configura Parsec
-│   ├── keep-alive.sh             # Mantém sessão ativa
-│   ├── show-credentials.sh       # Exibe credenciais
-│   └── system-info.sh            # Info do sistema
+│   ├── setup-vnc.sh              # Configures Screen Sharing
+│   ├── setup-tunnel.sh           # Starts tunnel
+│   ├── setup-parsec.sh           # Configures Parsec
+│   ├── keep-alive.sh             # Keeps session active
+│   ├── show-credentials.sh       # Shows credentials
+│   └── system-info.sh            # System info
 ├── configs/
-│   └── hardware-tiers.json       # Configurações de hardware
+│   └── hardware-tiers.json       # Hardware configurations
 └── README.md
 ```
 
 ---
 
-## 🔧 Configuração Avançada
+## 🔧 Advanced Configuration
 
-### Secrets Disponíveis
+### Available Secrets
 
-| Secret | Descrição | Obrigatório |
-|--------|-----------|-------------|
-| `PARSEC_SESSION_ID` | Session ID do Parsec | Apenas para Parsec |
-| `NGROK_AUTH_TOKEN` | Token do ngrok (aumenta limites) | Não |
+| Secret | Description | Required |
+|--------|-------------|----------|
+| `PARSEC_SESSION_ID` | Parsec session ID | Only for Parsec |
+| `NGROK_AUTH_TOKEN` | ngrok auth token (increases limits) | No |
 
-### Variáveis de Ambiente
+### Environment Variables
 
-Os workflows usam estas variáveis (configuráveis via inputs):
+Workflows use these variables (configurable via inputs):
 
-- `SESSION_DURATION`: Duração em horas
-- `TUNNEL_TYPE`: `cloudflared` ou `ngrok`
-- `VNC_PASSWORD`: Gerada automaticamente
+- `SESSION_DURATION`: Duration in hours
+- `TUNNEL_TYPE`: `cloudflared` or `ngrok`
+- `VNC_PASSWORD`: Auto-generated per session
+
+---
+
+## 🔐 Security
+
+### Credential Protection
+
+- **VNC Password**: Stored in private artifact (not visible in public logs)
+- **Tunnel URL**: Visible in logs (needed for connection)
+- **Session**: Ephemeral - everything is destroyed when workflow ends
+
+### For Public Repositories
+
+If your repository is public:
+1. Credentials are saved to a downloadable artifact
+2. Only repository collaborators can download artifacts
+3. Tunnel URL is public but useless without the password
+
+### Recommendation
+
+For maximum security, make your repository **private**. This ensures all logs and artifacts are only visible to you.
 
 ---
 
 ## ❓ Troubleshooting
 
-### "Não consigo conectar ao VNC"
+### "Cannot connect to VNC"
 
-1. Verifique se o cloudflared está rodando localmente
-2. Confirme que está usando a URL correta do túnel
-3. Tente `localhost:5900` no cliente VNC
+1. Make sure cloudflared is running locally
+2. Verify you're using the correct tunnel URL
+3. Try `localhost:5900` in VNC client
+4. Check if the workflow is still in "Keep Session Alive" step
 
-### "Túnel não inicia"
+### "Tunnel won't start"
 
-1. Verifique os logs do workflow
-2. Tente usar ngrok como alternativa
-3. Para ngrok, configure `NGROK_AUTH_TOKEN`
+1. Check workflow logs for errors
+2. Try ngrok as an alternative
+3. For ngrok, configure `NGROK_AUTH_TOKEN` secret
 
-### "Parsec não aparece na lista"
+### "Parsec host not appearing"
 
-1. Confirme que o `PARSEC_SESSION_ID` está correto
-2. Verifique se está logado na mesma conta
-3. Aguarde alguns segundos e atualize
+1. Confirm `PARSEC_SESSION_ID` is correct
+2. Make sure you're logged into the same Parsec account
+3. Wait a few seconds and refresh
+4. Check if the workflow completed the Parsec setup step
 
-### "Sessão terminou antes do tempo"
+### "Session ended early"
 
-1. GitHub tem timeout de 6h máximo
-2. Use "Extended Session" para sessões maiores
-3. Verifique se há output sendo gerado (keep-alive)
+1. GitHub has a 6h max timeout
+2. Use "Extended Session" for longer sessions
+3. Check if keep-alive is generating output
 
----
+### "Authentication error" in VNC
 
-## ⚖️ Uso Responsável
-
-Este projeto é para **desenvolvimento e testes legítimos**:
-
-- ✅ Testar apps iOS/macOS
-- ✅ Desenvolvimento ocasional
-- ✅ CI/CD que requer ambiente macOS
-- ❌ Uso 24/7 (use MacStadium para isso)
-- ❌ Mineração ou workloads abusivos
-
-O GitHub pode suspender contas que abusam dos recursos.
+1. Make sure you're using the password from the artifact file
+2. The password is case-sensitive
+3. Try downloading the artifact again
 
 ---
 
-## 📄 Licença
+## ⚖️ Responsible Use
 
-MIT License - Use livremente, mas por sua conta e risco.
+This project is for **legitimate development and testing**:
+
+- ✅ Testing iOS/macOS apps
+- ✅ Occasional development work
+- ✅ CI/CD that requires macOS environment
+- ❌ 24/7 usage (use MacStadium for that)
+- ❌ Mining or abusive workloads
+
+GitHub may suspend accounts that abuse resources.
 
 ---
 
-## 🙏 Créditos
+## 📄 License
 
-- **GitHub Actions** - Infraestrutura
-- **Cloudflare** - Túneis gratuitos via cloudflared
-- **Parsec** - Streaming de alta performance
+MIT License - Use freely, but at your own risk.
+
+---
+
+## 🙏 Credits
+
+- **GitHub Actions** - Infrastructure
+- **Cloudflare** - Free tunnels via cloudflared
+- **Parsec** - High-performance streaming
 
 ---
 
 <p align="center">
-  <b>Feito com ❤️ para a comunidade</b><br>
-  <sub>Star ⭐ se este projeto te ajudou!</sub>
+  <b>Made with ❤️ for the community</b><br>
+  <sub>Star ⭐ if this project helped you!</sub>
 </p>
