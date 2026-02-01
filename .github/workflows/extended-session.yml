@@ -52,11 +52,28 @@ jobs:
 
       - name: 🔐 Set macOS User Password
         run: |
-          # Get current username
-          MAC_USER=$(whoami)
-          echo "MAC_USER=${MAC_USER}" >> $GITHUB_ENV
+          # Get current username (runner) and admin username (usually Anka)
+          CURRENT_USER=$(whoami)
+          echo "CURRENT_USER=${CURRENT_USER}" >> $GITHUB_ENV
           
-          # Generate a secure password for the macOS user
+          # Find the admin user (usually "anka" on GitHub Actions macOS VMs)
+          # The admin user is needed for Privacy & Security dialogs
+          ADMIN_USER=$(dscl . -list /Users | grep -i anka | head -1 || echo "")
+          
+          if [ -z "$ADMIN_USER" ]; then
+            # If no anka user, try to find an admin user
+            ADMIN_USER=$(dscl . -read /Groups/admin GroupMembership 2>/dev/null | tr ' ' '\n' | grep -v "^GroupMembership:" | grep -v "^root$" | grep -v "^$CURRENT_USER$" | head -1 || echo "")
+          fi
+          
+          if [ -z "$ADMIN_USER" ]; then
+            ADMIN_USER="$CURRENT_USER"
+          fi
+          
+          echo "MAC_USER=${ADMIN_USER}" >> $GITHUB_ENV
+          echo "👤 Current user: ${CURRENT_USER}"
+          echo "👑 Admin user: ${ADMIN_USER}"
+          
+          # Generate a secure password
           MAC_PASSWORD=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12)
           
           # Mask password in logs
@@ -65,38 +82,29 @@ jobs:
           # Save to environment
           echo "MAC_PASSWORD=${MAC_PASSWORD}" >> $GITHUB_ENV
           
-          echo "👤 macOS User: ${MAC_USER}"
-          echo "🔐 Setting password for macOS user..."
+          echo "🔐 Setting password for admin user (${ADMIN_USER})..."
           
-          # Try multiple methods to set password (different macOS versions behave differently)
+          # Try multiple methods to set password for the ADMIN user
           
           # Method 1: Try sysadminctl (works on newer macOS without old password for admin)
-          if sudo sysadminctl -resetPasswordFor "${MAC_USER}" -newPassword "${MAC_PASSWORD}" 2>/dev/null; then
+          if sudo sysadminctl -resetPasswordFor "${ADMIN_USER}" -newPassword "${MAC_PASSWORD}" 2>/dev/null; then
             echo "✅ Password set via sysadminctl"
           # Method 2: Try dscl with empty old password (some VMs have no password set)
-          elif sudo dscl . -passwd /Users/${MAC_USER} "" "${MAC_PASSWORD}" 2>/dev/null; then
+          elif sudo dscl . -passwd /Users/${ADMIN_USER} "" "${MAC_PASSWORD}" 2>/dev/null; then
             echo "✅ Password set via dscl (empty old password)"
-          # Method 3: Direct password hash manipulation
+          # Method 3: Try creating password directly
+          elif sudo dscl . -passwd /Users/${ADMIN_USER} "${MAC_PASSWORD}" 2>/dev/null; then
+            echo "✅ Password set via dscl (direct)"
           else
-            echo "⚠️  Standard methods failed, trying direct approach..."
-            # Generate password hash and set it directly
-            HASH=$(echo -n "${MAC_PASSWORD}" | openssl dgst -sha512 | awk '{print $2}')
-            
-            # Try to delete existing password and create new one
-            sudo dscl . -delete /Users/${MAC_USER} Password 2>/dev/null || true
-            sudo dscl . -delete /Users/${MAC_USER} AuthenticationAuthority 2>/dev/null || true
-            sudo dscl . -create /Users/${MAC_USER} Password "${MAC_PASSWORD}" 2>/dev/null || true
-            
-            # Use security command to add keychain password (for sudo)
-            echo "${MAC_PASSWORD}" | sudo -S echo "Testing sudo with password..." 2>/dev/null && echo "✅ Password configured" || echo "⚠️  Password may not work for all operations"
+            echo "⚠️  Could not set admin password automatically"
+            echo "   The admin user may have a pre-existing password"
           fi
           
           echo ""
           echo "   Use this password for:"
-          echo "   - System Settings authentication"
+          echo "   - System Settings authentication (as ${ADMIN_USER})"
           echo "   - Privacy & Security permissions"
           echo "   - Installing apps that require admin"
-          echo "   - Screen unlock (if needed)"
 
       - name: 📊 System Information
         run: |
