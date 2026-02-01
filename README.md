@@ -20,6 +20,8 @@ Turn GitHub Actions runners into remotely accessible Macs. An alternative to ser
 | 🔗 **Extended Sessions** | Auto-chaining for >6h sessions |
 | 📊 **Multiple Sizes** | Standard, Large, XLarge |
 | 🔒 **Secure Credentials** | Passwords never shown in logs |
+| 🌐 **Unique IP Guarantee** | Each session gets a fresh, unique IP via Cloudflare WARP |
+| 📋 **IP Tracking** | Tracks IP history per user to detect duplicates |
 
 ---
 
@@ -53,6 +55,7 @@ Download from: **https://rustdesk.com/download**
    - **Duration**: Session time (1-6 hours)
    - **macOS Version**: Choose 14 (Sonoma), 15 (Sequoia), or 26 (Tahoe beta)
    - **Runner size**: Mac size (see table below)
+   - **Unique IP**: Enable to guarantee a fresh IP via Cloudflare WARP VPN
 4. Click **"Run workflow"**
 
 ### Step 4: Connect
@@ -118,6 +121,46 @@ To use larger runners, your organization needs a **Team** or **Enterprise** GitH
 3. `macos-14-large` and `macos-14-xlarge` runners will become available
 
 > 💡 **Tip**: Large/XLarge runners are ideal for iOS app compilation, simulators, and heavy tasks.
+
+---
+
+## 🌐 Unique IP Guarantee
+
+Each session can be configured to have a **guaranteed unique IP address**. This is useful for:
+
+- 🔒 Avoiding IP-based rate limits or bans
+- 🆕 Ensuring each machine/user gets a fresh IP
+- 📊 Tracking which IPs were used by whom
+
+### How It Works
+
+1. **IP Detection**: Every session detects and logs its public IP
+2. **IP History**: IPs are tracked per user and stored in cache
+3. **Duplicate Warning**: System alerts if an IP was previously used
+4. **VPN Rotation**: Enable "Unique IP" to route through Cloudflare WARP for a different IP
+
+### Enable Unique IP
+
+When starting a workflow, set **"Unique IP"** to `true`:
+
+| Option | Description |
+|--------|-------------|
+| `false` (default) | Uses GitHub's default IP (may repeat) |
+| `true` | Routes through Cloudflare WARP VPN for unique IP |
+
+### IP Information in Credentials
+
+The credentials artifact includes:
+
+```
+🌐 Network Information:
+  Public IP:  203.0.113.42
+  Location:   San Francisco, US
+  Provider:   AS13335 Cloudflare
+  WARP VPN:   true
+```
+
+> ⚠️ **Note**: Even with "Unique IP" enabled, Cloudflare WARP IPs come from a shared pool. For truly dedicated IPs, consider using a paid VPN service.
 
 ---
 
@@ -238,7 +281,9 @@ In repositories with multiple collaborators:
 │   ├── setup-rustdesk.sh         # Configures RustDesk
 │   ├── install-parsec.sh         # Installs Parsec (optional)
 │   ├── keep-alive.sh             # Keeps session active
-│   └── system-info.sh            # System information
+│   ├── system-info.sh            # System information
+│   ├── ip-manager.sh             # IP detection and tracking
+│   └── setup-warp.sh             # Cloudflare WARP VPN setup
 ├── configs/
 │   └── hardware-tiers.json       # Hardware configurations
 └── README.md
@@ -319,6 +364,11 @@ Workflows use these variables:
 |----------|-------------|---------|
 | `SESSION_DURATION` | Duration in hours | 2 |
 | `MACOS_VERSION` | macOS version (14, 15, 26) | 14 |
+| `CURRENT_IP` | Public IP address of the session | Auto-detected |
+| `IP_CITY` | City location of the IP | Auto-detected |
+| `IP_COUNTRY` | Country of the IP | Auto-detected |
+| `WARP_ENABLED` | Whether Cloudflare WARP VPN is active | false |
+| `IP_IS_DUPLICATE` | Whether this IP was used before | false |
 | `RUSTDESK_PASSWORD` | RustDesk password (auto-generated) | Random |
 | `MAC_PASSWORD` | macOS user password (auto-generated) | Random |
 

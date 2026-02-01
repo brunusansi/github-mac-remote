@@ -39,6 +39,14 @@ on:
           - 'standard'
           - 'large'
           - 'xlarge'
+      unique_ip:
+        description: 'Ensure unique IP via Cloudflare WARP VPN'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
       current_chain:
         description: 'Current chain number (internal use)'
         required: false
@@ -59,6 +67,25 @@ jobs:
     steps:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
+
+      - name: 📦 Restore IP History Cache
+        uses: actions/cache@v4
+        with:
+          path: .ip-history.json
+          key: ip-history-${{ github.repository_owner }}
+          restore-keys: |
+            ip-history-
+
+      - name: 🌐 Detect and Track IP
+        run: |
+          chmod +x scripts/ip-manager.sh
+          ./scripts/ip-manager.sh
+
+      - name: 🔒 Setup Unique IP (Cloudflare WARP)
+        if: github.event.inputs.unique_ip == 'true'
+        run: |
+          chmod +x scripts/setup-warp.sh
+          ./scripts/setup-warp.sh
 
       - name: 🔐 Create Admin User for GUI Authentication
         run: |
@@ -195,6 +222,15 @@ jobs:
           Run ID: ${{ github.run_id }}
           
           ────────────────────────────────────────────────────────────
+          🌐 Network Information:
+          ────────────────────────────────────────────────────────────
+          
+            Public IP:  ${{ env.CURRENT_IP }}
+            Location:   ${{ env.IP_CITY }}, ${{ env.IP_COUNTRY }}
+            Provider:   ${{ env.IP_ORG }}
+            WARP VPN:   ${{ env.WARP_ENABLED || 'false' }}
+          
+          ────────────────────────────────────────────────────────────
           🍎 macOS Credentials:
           ────────────────────────────────────────────────────────────
           
@@ -259,6 +295,16 @@ jobs:
           echo "👤 Session started by: ${{ github.actor }}"
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🌐 Public IP: ${{ env.CURRENT_IP }}"
+          echo "📍 Location: ${{ env.IP_CITY }}, ${{ env.IP_COUNTRY }}"
+          if [ "${{ env.WARP_ENABLED }}" = "true" ]; then
+            echo "🔒 VPN: Cloudflare WARP (Unique IP Enabled)"
+          fi
+          if [ "${{ env.IP_IS_DUPLICATE }}" = "true" ]; then
+            echo "⚠️  WARNING: This IP was previously used!"
+          fi
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
           echo "🍎 macOS User: ${{ env.MAC_USER }}"
           echo "🔐 macOS Password: ████████████ (in artifact)"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -332,6 +378,7 @@ jobs:
                   -f macos_version=${{ github.event.inputs.macos_version }} \
                   -f max_chains=${{ env.MAX_CHAINS }} \
                   -f runner_size=${{ github.event.inputs.runner_size }} \
+                  -f unique_ip=${{ github.event.inputs.unique_ip }} \
                   -f current_chain=${NEXT_CHAIN}
                 
                 triggered_chain=true
@@ -365,3 +412,10 @@ jobs:
           echo "👋 Chain ${{ env.CURRENT_CHAIN }} ended."
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 💾 Save IP History Cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .ip-history.json
+          key: ip-history-${{ github.repository_owner }}-${{ github.run_id }}
