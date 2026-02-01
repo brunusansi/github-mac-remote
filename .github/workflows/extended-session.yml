@@ -99,20 +99,37 @@ jobs:
         env:
           NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
 
-      - name: 📋 Display Connection Credentials
+      - name: 📋 Save Credentials (Private Artifact)
+        run: |
+          mkdir -p credentials
+          cat > credentials/connection-info.txt << EOF
+          🍎 EXTENDED SESSION - Chain ${{ env.CURRENT_CHAIN }}/${{ env.MAX_CHAINS }}
+          
+          VNC User: $(whoami)
+          VNC Password: ${{ env.VNC_PASSWORD }}
+          Tunnel URL: ${{ env.VNC_TUNNEL_URL }}
+          
+          Connect: cloudflared access tcp --hostname ${{ env.VNC_TUNNEL_URL }} --url localhost:5900
+          Then VNC to: localhost:5900
+          EOF
+
+      - name: 📦 Upload Credentials Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: connection-credentials-chain-${{ env.CURRENT_CHAIN }}
+          path: credentials/
+          retention-days: 1
+
+      - name: 📋 Display Public Instructions
         run: |
           echo ""
           echo "╔══════════════════════════════════════════════════════════════════╗"
           echo "║      🍎 EXTENDED SESSION - Chain ${{ env.CURRENT_CHAIN }}/${{ env.MAX_CHAINS }}                        ║"
           echo "╚══════════════════════════════════════════════════════════════════╝"
           echo ""
-          echo "🖥️  VNC Credentials:"
-          echo "   ├─ User: $(whoami)"
-          echo "   └─ Password: ${{ env.VNC_PASSWORD }}"
+          echo "🔐 Download 'connection-credentials' artifact for password!"
           echo ""
           echo "🌐 Tunnel URL: ${{ env.VNC_TUNNEL_URL }}"
-          echo ""
-          echo "⚠️  Note: New credentials each chain. Save important work!"
           echo ""
 
       - name: ⏱️ Keep Session Alive (with chain trigger)
