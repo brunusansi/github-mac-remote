@@ -38,6 +38,36 @@ jobs:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
+      - name: 🔐 Set macOS User Password
+        run: |
+          # Get current username
+          MAC_USER=$(whoami)
+          echo "MAC_USER=${MAC_USER}" >> $GITHUB_ENV
+          
+          # Generate a secure password for the macOS user
+          MAC_PASSWORD=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12)
+          
+          # Mask password in logs
+          echo "::add-mask::${MAC_PASSWORD}"
+          
+          # Save to environment
+          echo "MAC_PASSWORD=${MAC_PASSWORD}" >> $GITHUB_ENV
+          
+          echo "👤 macOS User: ${MAC_USER}"
+          echo "🔐 Setting password for macOS user..."
+          
+          # Set the password using dscl (Directory Service command line)
+          # This requires sudo but GitHub Actions runners have passwordless sudo
+          sudo dscl . -passwd /Users/${MAC_USER} "${MAC_PASSWORD}"
+          
+          echo "✅ macOS user password set successfully"
+          echo ""
+          echo "   Use this password for:"
+          echo "   - System Settings authentication"
+          echo "   - Privacy & Security permissions"
+          echo "   - Installing apps that require admin"
+          echo "   - Screen unlock (if needed)"
+
       - name: 📊 System Information
         run: |
           chmod +x scripts/system-info.sh
@@ -100,7 +130,7 @@ jobs:
         run: |
           mkdir -p credentials
           
-          # Create file with credentials (NOT displayed in logs)
+          # Create file with ALL credentials (NOT displayed in logs)
           cat > credentials/connection-info.txt << EOF
           ════════════════════════════════════════════════════════════
                     GITHUB MAC REMOTE - CREDENTIALS
@@ -111,31 +141,45 @@ jobs:
           Run ID: ${{ github.run_id }}
           
           ────────────────────────────────────────────────────────────
-          RustDesk Credentials:
+          🍎 macOS Credentials:
+          ────────────────────────────────────────────────────────────
+          
+            User:     ${{ env.MAC_USER }}
+            Password: ${{ env.MAC_PASSWORD }}
+          
+            Use this password for:
+            • System Settings authentication
+            • Privacy & Security permissions (Input Monitoring, etc.)
+            • Installing apps that require admin
+            • Parsec permissions setup
+          
+          ────────────────────────────────────────────────────────────
+          🦀 RustDesk Credentials:
           ────────────────────────────────────────────────────────────
           
             ID:       ${{ env.RUSTDESK_ID }}
             Password: ${{ env.RUSTDESK_PASSWORD }}
           
           ────────────────────────────────────────────────────────────
-          How to Connect:
+          📖 How to Connect:
           ────────────────────────────────────────────────────────────
           
           1. Download RustDesk from: https://rustdesk.com/download
           2. Install and open RustDesk on your computer
-          3. Enter the ID shown above
-          4. Enter the password shown above
+          3. Enter the RustDesk ID shown above
+          4. Enter the RustDesk password shown above
           5. Click Connect!
           
           ────────────────────────────────────────────────────────────
-          Optional: Parsec is also installed!
+          🎮 Optional: Parsec is also installed!
           ────────────────────────────────────────────────────────────
           
           If you prefer Parsec for lower latency:
           1. Connect via RustDesk first
           2. Open Parsec from Applications
           3. Log in with your Parsec account
-          4. Enable hosting and connect from your other device
+          4. When prompted for permissions, use macOS password above
+          5. Enable hosting and connect from your other device
           
           ════════════════════════════════════════════════════════════
           ⚠️  WARNING: This file contains sensitive credentials.
@@ -160,13 +204,17 @@ jobs:
           echo ""
           echo "👤 Session started by: ${{ github.actor }}"
           echo ""
-          echo "🔑 RustDesk ID: ${{ env.RUSTDESK_ID }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🍎 macOS User: ${{ env.MAC_USER }}"
+          echo "🔐 macOS Password: ████████████ (in artifact)"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
-          echo "🔐 Password: ████████████ (protected)"
+          echo "🔑 RustDesk ID: ${{ env.RUSTDESK_ID }}"
+          echo "🔐 RustDesk Password: ████████████ (in artifact)"
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
-          echo "📥 HOW TO GET THE PASSWORD:"
+          echo "📥 HOW TO GET ALL PASSWORDS:"
           echo ""
           echo "   1. Go to the 'Summary' tab of this workflow"
           echo "   2. Download artifact: credentials-${{ github.actor }}-${{ github.run_id }}"
@@ -178,18 +226,18 @@ jobs:
           echo ""
           echo "   1. Download RustDesk: https://rustdesk.com/download"
           echo "   2. Open RustDesk and enter ID: ${{ env.RUSTDESK_ID }}"
-          echo "   3. Enter the password from the artifact"
+          echo "   3. Enter the RustDesk password from the artifact"
           echo "   4. Click Connect!"
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
-          echo "🎮 Parsec is also installed! Open it from Applications if you prefer."
+          echo "🎮 Parsec is also installed! Use macOS password for permissions."
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
           echo "⏱️  Session active for ${{ env.SESSION_DURATION }} hour(s)"
           echo ""
-          echo "🔒 SECURITY: Password is NOT displayed in logs."
+          echo "🔒 SECURITY: Passwords are NOT displayed in logs."
           echo "   Only you can download the artifact with credentials."
           echo ""
 

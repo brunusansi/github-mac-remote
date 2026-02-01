@@ -15,10 +15,11 @@ Turn GitHub Actions runners into remotely accessible Macs. An alternative to ser
 | 🖥️ **Real Mac ARM64** | Virtualized Mac Mini with Apple Silicon |
 | 🦀 **RustDesk** | Remote access without complex setup |
 | 🎮 **Parsec Pre-installed** | Optional low-latency alternative |
+| 🔐 **macOS Password** | System authentication password included |
 | ⏱️ **Configurable Sessions** | From 1h to 6h per session |
 | 🔗 **Extended Sessions** | Auto-chaining for >6h sessions |
 | 📊 **Multiple Sizes** | Standard, Large, XLarge |
-| 🔒 **Secure Credentials** | Password never shown in logs |
+| 🔒 **Secure Credentials** | Passwords never shown in logs |
 
 ---
 
@@ -58,11 +59,11 @@ Download from: **https://rustdesk.com/download**
 1. Wait for the workflow to reach **"Keep Session Alive"** step
 2. In the **logs**, see the **RustDesk ID** (9 digits)
 3. Download the **artifact** `credentials-<your-username>-<run-id>` from the Summary tab
-4. Open the file to see the **password**
-5. In **RustDesk**, enter the ID and password
+4. Open the file to see both **passwords** (RustDesk and macOS)
+5. In **RustDesk**, enter the ID and RustDesk password
 6. **Connected!** 🎉
 
-> 🔒 **Security**: The password does NOT appear in logs. Only in the private artifact.
+> 🔒 **Security**: Passwords do NOT appear in logs. Only in the private artifact.
 
 ---
 
@@ -73,10 +74,11 @@ Download from: **https://rustdesk.com/download**
 1. Connect via RustDesk first
 2. Open **Parsec** from Applications
 3. Log in with your Parsec account
-4. Enable hosting in Parsec settings
-5. Connect from your other device!
+4. When prompted for permissions (Input Monitoring, Screen Recording), use the **macOS password** from the credentials file
+5. Enable hosting in Parsec settings
+6. Connect from your other device!
 
-> ℹ️ Parsec cannot be auto-configured due to macOS VM security restrictions, but it works great when set up manually.
+> ℹ️ Parsec cannot be auto-configured due to macOS VM security restrictions, but it works great when set up manually. The macOS password is needed to grant system permissions.
 
 ---
 
@@ -155,11 +157,12 @@ This project was built with **security in mind**, especially for multi-user envi
 
 | Feature | Implementation |
 |---------|----------------|
-| **Masked Password** | Uses `::add-mask::` - password NEVER appears in logs |
+| **Masked Passwords** | Uses `::add-mask::` - passwords NEVER appear in logs |
 | **Private Artifact** | Credentials saved in downloadable artifact, not in logs |
 | **User Identification** | Artifact named with initiating user: `credentials-<user>-<run-id>` |
+| **macOS Password** | System auth password for Privacy & Security dialogs |
 | **Ephemeral Session** | Everything is destroyed when workflow ends |
-| **Unique ID** | Each session generates a new ID and password |
+| **Unique Credentials** | Each session generates new ID and passwords |
 
 ### 🔒 User Isolation
 
@@ -174,15 +177,17 @@ In repositories with multiple collaborators:
 ```
 1. User starts workflow
    ↓
-2. Password generated with openssl (12 alphanumeric characters)
+2. macOS user password generated (12 alphanumeric characters)
    ↓
-3. Password masked with ::add-mask:: (won't appear in any log)
+3. RustDesk password generated (12 alphanumeric characters)
    ↓
-4. Credentials saved to file inside artifact
+4. Both passwords masked with ::add-mask:: (won't appear in any log)
    ↓
-5. Artifact named: credentials-{user}-{run_id}
+5. Credentials saved to file inside artifact
    ↓
-6. Only those with repository access can download artifacts
+6. Artifact named: credentials-{user}-{run_id}
+   ↓
+7. Only those with repository access can download artifacts
 ```
 
 ### ⚠️ Considerations
@@ -268,6 +273,15 @@ This project is for **legitimate development and testing**:
 
 ## 🔧 Advanced Configuration
 
+### Credentials Included
+
+Each session provides two sets of credentials in the artifact:
+
+| Credential | Purpose |
+|------------|---------|
+| **macOS User + Password** | System authentication (Privacy & Security, app installs, sudo) |
+| **RustDesk ID + Password** | Remote desktop connection |
+
 ### Environment Variables
 
 Workflows use these variables:
@@ -275,7 +289,8 @@ Workflows use these variables:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `SESSION_DURATION` | Duration in hours | 2 |
-| `RUSTDESK_PASSWORD` | Password (auto-generated) | Random |
+| `RUSTDESK_PASSWORD` | RustDesk password (auto-generated) | Random |
+| `MAC_PASSWORD` | macOS user password (auto-generated) | Random |
 
 ### Customization
 

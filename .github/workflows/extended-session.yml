@@ -50,6 +50,29 @@ jobs:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
+      - name: 🔐 Set macOS User Password
+        run: |
+          # Get current username
+          MAC_USER=$(whoami)
+          echo "MAC_USER=${MAC_USER}" >> $GITHUB_ENV
+          
+          # Generate a secure password for the macOS user
+          MAC_PASSWORD=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12)
+          
+          # Mask password in logs
+          echo "::add-mask::${MAC_PASSWORD}"
+          
+          # Save to environment
+          echo "MAC_PASSWORD=${MAC_PASSWORD}" >> $GITHUB_ENV
+          
+          echo "👤 macOS User: ${MAC_USER}"
+          echo "🔐 Setting password for macOS user..."
+          
+          # Set the password using dscl (Directory Service command line)
+          sudo dscl . -passwd /Users/${MAC_USER} "${MAC_PASSWORD}"
+          
+          echo "✅ macOS user password set successfully"
+
       - name: 📊 System Information
         run: |
           chmod +x scripts/system-info.sh
@@ -124,14 +147,27 @@ jobs:
           Run ID: ${{ github.run_id }}
           
           ────────────────────────────────────────────────────────────
-          RustDesk Credentials:
+          🍎 macOS Credentials:
+          ────────────────────────────────────────────────────────────
+          
+            User:     ${{ env.MAC_USER }}
+            Password: ${{ env.MAC_PASSWORD }}
+          
+            Use this password for:
+            • System Settings authentication
+            • Privacy & Security permissions (Input Monitoring, etc.)
+            • Installing apps that require admin
+            • Parsec permissions setup
+          
+          ────────────────────────────────────────────────────────────
+          🦀 RustDesk Credentials:
           ────────────────────────────────────────────────────────────
           
             ID:       ${{ env.RUSTDESK_ID }}
             Password: ${{ env.RUSTDESK_PASSWORD }}
           
           ────────────────────────────────────────────────────────────
-          How to Connect:
+          📖 How to Connect:
           ────────────────────────────────────────────────────────────
           
           1. Download RustDesk: https://rustdesk.com/download
@@ -140,7 +176,16 @@ jobs:
           
           ⚠️  New chain = new credentials!
           
-          🎮 Parsec is also installed for optional use.
+          ────────────────────────────────────────────────────────────
+          🎮 Optional: Parsec is also installed!
+          ────────────────────────────────────────────────────────────
+          
+          If you prefer Parsec for lower latency:
+          1. Connect via RustDesk first
+          2. Open Parsec from Applications
+          3. Log in with your Parsec account
+          4. When prompted for permissions, use macOS password above
+          5. Enable hosting and connect from your other device
           
           ════════════════════════════════════════════════════════════
           ⚠️  WARNING: This file contains sensitive credentials.
@@ -165,13 +210,17 @@ jobs:
           echo ""
           echo "👤 Session started by: ${{ github.actor }}"
           echo ""
-          echo "🔑 RustDesk ID: ${{ env.RUSTDESK_ID }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🍎 macOS User: ${{ env.MAC_USER }}"
+          echo "🔐 macOS Password: ████████████ (in artifact)"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
-          echo "🔐 Password: ████████████ (protected)"
+          echo "🔑 RustDesk ID: ${{ env.RUSTDESK_ID }}"
+          echo "🔐 RustDesk Password: ████████████ (in artifact)"
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
-          echo "📥 HOW TO GET THE PASSWORD:"
+          echo "📥 HOW TO GET ALL PASSWORDS:"
           echo ""
           echo "   1. Go to the 'Summary' tab of this workflow"
           echo "   2. Download artifact: credentials-${{ github.actor }}-chain${{ env.CURRENT_CHAIN }}-${{ github.run_id }}"
@@ -179,9 +228,9 @@ jobs:
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
-          echo "🎮 Parsec is also installed! Open it from Applications if you prefer."
+          echo "🎮 Parsec is also installed! Use macOS password for permissions."
           echo ""
-          echo "🔒 SECURITY: Password is NOT displayed in logs."
+          echo "🔒 SECURITY: Passwords are NOT displayed in logs."
           echo ""
 
       - name: ⏱️ Keep Session Alive (with chain trigger)
