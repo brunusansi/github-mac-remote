@@ -1,10 +1,10 @@
-name: 🍎 Extended Mac Session (Auto-Chain)
+name: 🔗 Extended Mac Session (Auto-Chain)
 
 on:
   workflow_dispatch:
     inputs:
       duration:
-        description: 'Session duration per chain (hours)'
+        description: 'Duração por cadeia (horas)'
         required: true
         default: '6'
         type: choice
@@ -13,7 +13,7 @@ on:
           - '5'
           - '6'
       max_chains:
-        description: 'Maximum number of session chains'
+        description: 'Número máximo de cadeias'
         required: true
         default: '2'
         type: choice
@@ -22,7 +22,7 @@ on:
           - '2'
           - '3'
       runner_size:
-        description: 'Runner size'
+        description: 'Tamanho do runner'
         required: true
         default: 'standard'
         type: choice
@@ -30,28 +30,19 @@ on:
           - 'standard'
           - 'large'
           - 'xlarge'
-      tunnel_type:
-        description: 'Tunnel provider'
-        required: true
-        default: 'cloudflared'
-        type: choice
-        options:
-          - 'cloudflared'
-          - 'ngrok'
       current_chain:
-        description: 'Current chain number (internal use)'
+        description: 'Cadeia atual (uso interno)'
         required: false
         default: '1'
 
 env:
   SESSION_DURATION: ${{ github.event.inputs.duration }}
-  TUNNEL_TYPE: ${{ github.event.inputs.tunnel_type }}
   MAX_CHAINS: ${{ github.event.inputs.max_chains }}
   CURRENT_CHAIN: ${{ github.event.inputs.current_chain }}
 
 jobs:
   extended-session:
-    name: 🖥️ Extended Session (Chain ${{ github.event.inputs.current_chain }}/${{ github.event.inputs.max_chains }})
+    name: 🔗 Sessão Estendida (Cadeia ${{ github.event.inputs.current_chain }}/${{ github.event.inputs.max_chains }})
     runs-on: ${{ github.event.inputs.runner_size == 'xlarge' && 'macos-14-xlarge' || github.event.inputs.runner_size == 'large' && 'macos-14-large' || 'macos-14' }}
     timeout-minutes: 375
     
@@ -59,58 +50,74 @@ jobs:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
-      - name: 📊 Display System Information
+      - name: 📊 Informações do Sistema
         run: |
           chmod +x scripts/system-info.sh
           ./scripts/system-info.sh
           
           echo ""
-          echo "🔗 Chain Info:"
-          echo "   ├─ Current Chain: ${{ env.CURRENT_CHAIN }} / ${{ env.MAX_CHAINS }}"
-          echo "   ├─ Duration: ${{ env.SESSION_DURATION }} hours"
+          echo "🔗 Informações da Cadeia:"
+          echo "   ├─ Cadeia Atual: ${{ env.CURRENT_CHAIN }} / ${{ env.MAX_CHAINS }}"
+          echo "   ├─ Duração: ${{ env.SESSION_DURATION }} horas"
           TOTAL_TIME=$(( ${{ env.CURRENT_CHAIN }} * ${{ env.SESSION_DURATION }} ))
-          echo "   └─ Total Time (so far): ${TOTAL_TIME} hours"
+          echo "   └─ Tempo Total (até agora): ${TOTAL_TIME} horas"
           echo ""
 
-      - name: 🔐 Setup VNC (Screen Sharing)
+      - name: 🦀 Configurar RustDesk
         run: |
-          chmod +x scripts/setup-vnc.sh
+          chmod +x scripts/setup-rustdesk.sh
           
-          VNC_PASSWORD=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12)
-          echo "VNC_PASSWORD=${VNC_PASSWORD}" >> $GITHUB_ENV
+          # Gerar senha
+          RUSTDESK_PASSWORD=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12)
+          echo "RUSTDESK_PASSWORD=${RUSTDESK_PASSWORD}" >> $GITHUB_ENV
           
-          export VNC_PASSWORD
-          ./scripts/setup-vnc.sh
-
-      - name: 🚇 Setup Tunnel
-        run: |
-          chmod +x scripts/setup-tunnel.sh
+          export RUSTDESK_PASSWORD
+          ./scripts/setup-rustdesk.sh
           
-          export TUNNEL_TYPE="${{ env.TUNNEL_TYPE }}"
-          export VNC_PORT=5900
-          ./scripts/setup-tunnel.sh
-          
+          # Aguardar RustDesk registrar
           sleep 10
-          
-          if [ -f /tmp/tunnel_vnc.log ]; then
-            VNC_URL=$(grep -o 'https://[^[:space:]]*\.trycloudflare\.com' /tmp/tunnel_vnc.log | head -1 || echo "See logs")
-            echo "VNC_TUNNEL_URL=${VNC_URL}" >> $GITHUB_ENV
-          fi
-        env:
-          NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
 
-      - name: 📋 Save Credentials (Private Artifact)
+      - name: 🔑 Obter RustDesk ID
+        run: |
+          sleep 5
+          
+          RUSTDESK_CLI="/Applications/RustDesk.app/Contents/MacOS/rustdesk"
+          
+          if [ -f "$RUSTDESK_CLI" ]; then
+            RUSTDESK_ID=$("$RUSTDESK_CLI" --get-id 2>/dev/null || echo "")
+            
+            if [ -z "$RUSTDESK_ID" ]; then
+              CONFIG_DIR="$HOME/Library/Application Support/RustDesk"
+              RUSTDESK_ID=$(cat "${CONFIG_DIR}/id" 2>/dev/null || echo "")
+            fi
+            
+            if [ -n "$RUSTDESK_ID" ]; then
+              echo "RUSTDESK_ID=${RUSTDESK_ID}" >> $GITHUB_ENV
+              echo "✅ RustDesk ID: ${RUSTDESK_ID}"
+            else
+              echo "RUSTDESK_ID=Ver_Logs" >> $GITHUB_ENV
+            fi
+          fi
+
+      - name: 💾 Salvar Credenciais
         run: |
           mkdir -p credentials
           cat > credentials/connection-info.txt << EOF
-          🍎 EXTENDED SESSION - Chain ${{ env.CURRENT_CHAIN }}/${{ env.MAX_CHAINS }}
+          ════════════════════════════════════════════════════════════
+            SESSÃO ESTENDIDA - Cadeia ${{ env.CURRENT_CHAIN }}/${{ env.MAX_CHAINS }}
+          ════════════════════════════════════════════════════════════
           
-          VNC User: $(whoami)
-          VNC Password: ${{ env.VNC_PASSWORD }}
-          Tunnel URL: ${{ env.VNC_TUNNEL_URL }}
+          RustDesk ID: ${{ env.RUSTDESK_ID }}
+          Senha: ${{ env.RUSTDESK_PASSWORD }}
           
-          Connect: cloudflared access tcp --hostname ${{ env.VNC_TUNNEL_URL }} --url localhost:5900
-          Then VNC to: localhost:5900
+          ────────────────────────────────────────────────────────────
+          Como Conectar:
+          1. Baixe o RustDesk: https://rustdesk.com/download
+          2. Digite o ID e senha acima
+          3. Clique Connect!
+          
+          ⚠️  Nova cadeia = novas credenciais!
+          ════════════════════════════════════════════════════════════
           EOF
 
       - name: 📦 Upload Credentials Artifact
@@ -120,34 +127,40 @@ jobs:
           path: credentials/
           retention-days: 1
 
-      - name: 📋 Display Public Instructions
+      - name: 📋 Instruções de Conexão
         run: |
           echo ""
           echo "╔══════════════════════════════════════════════════════════════════╗"
-          echo "║      🍎 EXTENDED SESSION - Chain ${{ env.CURRENT_CHAIN }}/${{ env.MAX_CHAINS }}                        ║"
+          echo "║   🔗 SESSÃO ESTENDIDA - Cadeia ${{ env.CURRENT_CHAIN }}/${{ env.MAX_CHAINS }}                          ║"
           echo "╚══════════════════════════════════════════════════════════════════╝"
           echo ""
-          echo "🔐 Download 'connection-credentials' artifact for password!"
+          echo "🔑 RustDesk ID: ${{ env.RUSTDESK_ID }}"
+          echo "🔐 Senha: ${{ env.RUSTDESK_PASSWORD }}"
           echo ""
-          echo "🌐 Tunnel URL: ${{ env.VNC_TUNNEL_URL }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "📖 Como conectar:"
+          echo "   1. Baixe o RustDesk: https://rustdesk.com/download"
+          echo "   2. Digite o ID e senha acima"
+          echo "   3. Clique Connect!"
           echo ""
 
-      - name: ⏱️ Keep Session Alive (with chain trigger)
+      - name: ⏱️ Manter Sessão Ativa (com trigger de cadeia)
         run: |
           chmod +x scripts/keep-alive.sh
           
           DURATION_HOURS=${{ env.SESSION_DURATION }}
           KEEPALIVE_INTERVAL=300
           
-          # Calculate times
+          # Calcular tempos
           DURATION_SECONDS=$((DURATION_HOURS * 3600))
-          CHAIN_TRIGGER_TIME=$((DURATION_SECONDS - 120)) # 2 minutes before end
+          CHAIN_TRIGGER_TIME=$((DURATION_SECONDS - 120)) # 2 minutos antes do fim
           START_TIME=$(date +%s)
           END_TIME=$((START_TIME + DURATION_SECONDS))
           
-          echo "⏱️  Session keep-alive started"
-          echo "   Duration: ${DURATION_HOURS} hour(s)"
-          echo "   Chain trigger: 2 minutes before end"
+          echo "⏱️  Keep-alive iniciado"
+          echo "   Duração: ${DURATION_HOURS} hora(s)"
+          echo "   Trigger da próxima cadeia: 2 minutos antes do fim"
           echo ""
           
           triggered_chain=false
@@ -159,11 +172,11 @@ jobs:
             
             if [ $REMAINING -le 0 ]; then
               echo ""
-              echo "⏰ Session time expired."
+              echo "⏰ Tempo da sessão expirado."
               break
             fi
             
-            # Trigger next chain 2 minutes before end
+            # Disparar próxima cadeia 2 minutos antes do fim
             if [ $ELAPSED -ge $CHAIN_TRIGGER_TIME ] && [ "$triggered_chain" = false ]; then
               CURRENT_CHAIN=${{ env.CURRENT_CHAIN }}
               MAX_CHAINS=${{ env.MAX_CHAINS }}
@@ -172,47 +185,46 @@ jobs:
               if [ $NEXT_CHAIN -le $MAX_CHAINS ]; then
                 echo ""
                 echo "🔗 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-                echo "🔗 Triggering next chain (${NEXT_CHAIN}/${MAX_CHAINS})..."
-                echo "🔗 New session will start shortly with new credentials."
+                echo "🔗 Iniciando próxima cadeia (${NEXT_CHAIN}/${MAX_CHAINS})..."
+                echo "🔗 Nova sessão com novas credenciais em breve."
                 echo "🔗 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
                 echo ""
                 
-                # Trigger next workflow
+                # Disparar próximo workflow
                 gh workflow run extended-session.yml \
                   -f duration=${{ env.SESSION_DURATION }} \
                   -f max_chains=${{ env.MAX_CHAINS }} \
                   -f runner_size=${{ github.event.inputs.runner_size }} \
-                  -f tunnel_type=${{ env.TUNNEL_TYPE }} \
                   -f current_chain=${NEXT_CHAIN}
                 
                 triggered_chain=true
               else
                 echo ""
-                echo "⚠️  Maximum chains reached. No more extensions."
+                echo "⚠️  Máximo de cadeias atingido. Sem mais extensões."
               fi
             fi
             
-            # Warnings
+            # Avisos
             if [ $REMAINING -le 900 ] && [ $REMAINING -gt 890 ]; then
               echo ""
-              echo "⚠️  15 minutes remaining in this chain!"
+              echo "⚠️  15 minutos restantes nesta cadeia!"
             fi
             
             if [ $REMAINING -le 300 ] && [ $REMAINING -gt 290 ]; then
               echo ""
-              echo "🚨 5 minutes remaining! Check for new chain credentials."
+              echo "🚨 5 minutos restantes! Verifique novas credenciais da próxima cadeia."
             fi
             
             # Heartbeat
             HOURS=$((REMAINING / 3600))
             MINUTES=$(((REMAINING % 3600) / 60))
-            printf "\r💓 [%02d:%02d remaining] Chain ${{ env.CURRENT_CHAIN }} active - $(date '+%H:%M:%S')     " $HOURS $MINUTES
+            printf "\r💓 [%02d:%02d restante] Cadeia ${{ env.CURRENT_CHAIN }} ativa - $(date '+%H:%M:%S')     " $HOURS $MINUTES
             
             SLEEP_TIME=$((REMAINING < KEEPALIVE_INTERVAL ? REMAINING : KEEPALIVE_INTERVAL))
             sleep $SLEEP_TIME
           done
           
           echo ""
-          echo "👋 Chain ${{ env.CURRENT_CHAIN }} ended."
+          echo "👋 Cadeia ${{ env.CURRENT_CHAIN }} finalizada."
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

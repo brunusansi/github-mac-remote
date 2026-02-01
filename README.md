@@ -1,393 +1,249 @@
 # 🍎 GitHub Mac Remote
 
-> **Turn GitHub Actions runners into accessible remote Mac Minis**
+> **Acesse Macs com Apple Silicon (M1/M2/M3/M4) remotamente através do GitHub Actions**
 
-Access Mac Minis with Apple Silicon (M1/M2/M3) through GitHub Actions. Similar to MacStadium, but using GitHub's infrastructure.
+Transforme runners do GitHub Actions em Macs acessíveis remotamente. Uma alternativa a serviços como MacStadium, usando a infraestrutura do GitHub.
 
-[![Start Mac Session](https://img.shields.io/badge/▶️_Start_Mac_Session-blue?style=for-the-badge)](../../actions/workflows/mac-session.yml)
-[![RustDesk Session](https://img.shields.io/badge/🦀_RustDesk_Session-orange?style=for-the-badge)](../../actions/workflows/rustdesk-session.yml)
-[![Extended Session](https://img.shields.io/badge/🔗_Extended_Session-green?style=for-the-badge)](../../actions/workflows/extended-session.yml)
-[![Parsec Session](https://img.shields.io/badge/🎮_Parsec_Session-purple?style=for-the-badge)](../../actions/workflows/parsec-session.yml)
+[![RustDesk Session](https://img.shields.io/badge/🦀_Iniciar_Sessão-RustDesk-orange?style=for-the-badge)](../../actions/workflows/rustdesk-session.yml)
 
 ---
 
-## ✨ Features
+## ✨ Recursos
 
-- 🖥️ **Real Mac ARM64** - Not a VM, physical Mac Mini with Apple Silicon
-- 🌐 **Remote Access** - Via VNC, RustDesk, or Parsec
-- ⏱️ **Configurable Sessions** - From 1h to 6h (or more with chaining)
-- 🔗 **Extended Sessions** - Auto-chain for sessions >6h
-- 🔐 **Secure Credentials** - Password stored in private artifact
-- 📊 **Multiple Tiers** - Standard, Large, XLarge
+| Recurso | Descrição |
+|---------|-----------|
+| 🖥️ **Mac ARM64 Real** | Mac Mini virtualizado com Apple Silicon |
+| 🦀 **RustDesk** | Acesso remoto sem configuração complexa |
+| ⏱️ **Sessões Configuráveis** | De 1h até 6h por sessão |
+| 🔗 **Sessões Estendidas** | Encadeamento automático para >6h |
+| 📊 **Múltiplos Tamanhos** | Standard, Large, XLarge |
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Início Rápido
 
-### 1. Use this repository
+### Passo 1: Fork ou Clone
 
-**Option A: Fork** (recommended)
-```
-Fork this repository to your account
-```
-
-**Option B: Template**
-```
-Use as a template to create a new repository
+```bash
+# Clone o repositório
+git clone https://github.com/SANSI-GROUP/github-mac-remote.git
 ```
 
-### 2. Choose a connection method
+Ou faça um **Fork** para sua conta/organização.
 
-| Method | Workflow | Setup | Latency | Quality |
-|--------|----------|-------|---------|---------|
-| **🦀 RustDesk** (Recommended) | `rustdesk-session.yml` | None | Low | Excellent |
-| **🖥️ VNC** | `mac-session.yml` | cloudflared | Medium | Good |
-| **🎮 Parsec** | `parsec-session.yml` | Account | Very Low | Best |
+### Passo 2: Instale o RustDesk no seu computador
 
-### 3. Start a session
+Baixe em: **https://rustdesk.com/download**
 
-1. Go to **Actions** → **"🍎 Start Mac Session"**
-2. Click **"Run workflow"**
+| Sistema | Download |
+|---------|----------|
+| Windows | [rustdesk-x86_64.exe](https://github.com/rustdesk/rustdesk/releases/latest) |
+| macOS Intel | [rustdesk-x86_64.dmg](https://github.com/rustdesk/rustdesk/releases/latest) |
+| macOS Apple Silicon | [rustdesk-aarch64.dmg](https://github.com/rustdesk/rustdesk/releases/latest) |
+| Linux | [.deb](https://github.com/rustdesk/rustdesk/releases/latest) / [.AppImage](https://github.com/rustdesk/rustdesk/releases/latest) |
+
+### Passo 3: Inicie uma sessão
+
+1. Vá em **Actions** → **"🦀 RustDesk Mac Session"**
+2. Clique em **"Run workflow"**
 3. Configure:
-   - **Duration**: Session time (1-6 hours)
-   - **Runner size**: Mac size (see table below)
-   - **Tunnel type**: cloudflared (recommended) or ngrok
-4. Click **"Run workflow"**
+   - **Duration**: Tempo da sessão (1-6 horas)
+   - **Runner size**: Tamanho do Mac (veja tabela abaixo)
+4. Clique em **"Run workflow"**
 
-### 3. Get credentials
+### Passo 4: Conecte
 
-1. Wait for the workflow to reach "Keep Session Alive" step
-2. Go to the **Summary** tab
-3. Download the **"connection-credentials"** artifact
-4. Open the `.txt` file to see VNC password
-
-### 4. Connect
-
-#### Install cloudflared (one time):
-
-**Windows (PowerShell as Admin):**
-```powershell
-winget install Cloudflare.cloudflared
-```
-
-**macOS:**
-```bash
-brew install cloudflared
-```
-
-**Linux:**
-```bash
-# Debian/Ubuntu
-curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb
-sudo dpkg -i cloudflared.deb
-```
-
-#### Create local tunnel:
-```bash
-cloudflared access tcp --hostname <TUNNEL_URL_FROM_LOGS> --url localhost:5900
-```
-
-#### Connect VNC client:
-- **Windows**: Use [RealVNC Viewer](https://www.realvnc.com/en/connect/download/viewer/) → Connect to `localhost:5900`
-- **macOS**: Open Finder → Go → Connect to Server → `vnc://localhost:5900`
-- **Linux**: Use Remmina or `vncviewer localhost:5900`
-
-Enter the password from the artifact file.
+1. Aguarde o workflow chegar no passo **"Keep Session Alive"**
+2. Veja os **logs** para obter:
+   - **RustDesk ID**: O ID de 9 dígitos
+   - **Password**: A senha de acesso
+3. Abra o **RustDesk** no seu computador
+4. Digite o ID e a senha
+5. **Conectado!** 🎉
 
 ---
 
-## 📊 Hardware Tiers
+## 📊 Tamanhos de Runners
 
-| Tier | Runner | vCPUs | RAM | Chip | Plans |
-|------|--------|-------|-----|------|-------|
+| Tier | Runner | vCPUs | RAM | Chip | Planos |
+|------|--------|-------|-----|------|--------|
 | **Standard** | `macos-14` | 3 | 7 GB | M1 | Free, Pro, Team, Enterprise |
 | **Large** | `macos-14-large` | 12 | 30 GB | M1 Pro | Team, Enterprise |
 | **XLarge** | `macos-14-xlarge` | 24 | 70 GB | M1 Max | Enterprise |
 
-> ⚠️ Large and XLarge runners require paid GitHub plans
+### Runners Maiores (Large/XLarge)
+
+Para usar runners maiores, sua organização precisa ter um plano **Team** ou **Enterprise** do GitHub.
+
+**Como habilitar runners maiores:**
+
+1. Vá em **Settings** → **Actions** → **Runners**
+2. Em "Larger runners", configure os runners disponíveis
+3. Runners `macos-14-large` e `macos-14-xlarge` ficarão disponíveis
+
+> 💡 **Dica**: Runners Large/XLarge são ideais para compilação de apps iOS, simuladores, e tarefas pesadas.
 
 ---
 
-## ⏱️ Time Limits
+## ⏱️ Limites de Tempo
 
-| Plan | Minutes/month | Max per session |
-|------|---------------|-----------------|
-| **Free** | 2,000 min | 6 hours |
-| **Pro** | 3,000 min | 6 hours |
-| **Team** | 3,000 min | 6 hours |
-| **Enterprise** | Custom | 6 hours |
+| Plano | Minutos/mês | Máximo por sessão |
+|-------|-------------|-------------------|
+| **Free** | 2.000 min | 6 horas |
+| **Pro** | 3.000 min | 6 horas |
+| **Team** | 3.000 min | 6 horas |
+| **Enterprise** | Custom | 6 horas |
 
-### Extended Sessions (>6 hours)
+> ⚠️ **Importante**: Runners macOS consomem minutos em taxa de **10x** no plano Free/Pro. 
+> Exemplo: 1 hora de uso = 10 minutos consumidos da cota.
 
-Use the **"🔗 Extended Mac Session"** workflow for longer sessions:
+### Sessões Estendidas (>6 horas)
 
-1. Set `max_chains` (max 3 = 18 hours total)
-2. System automatically triggers new session before timeout
-3. New credentials generated for each chain
-4. ~30 seconds downtime between chains
+Use o workflow **"🔗 Extended Mac Session"** para sessões mais longas:
 
----
-
-## 🦀 RustDesk (Recommended)
-
-RustDesk is an open-source remote desktop solution similar to TeamViewer/AnyDesk, but free and with no account required.
-
-### Why RustDesk?
-
-- ✅ **No tunnel setup** - Uses public relay servers automatically
-- ✅ **No account needed** - Just ID and password
-- ✅ **Cross-platform** - Windows, macOS, Linux, iOS, Android
-- ✅ **Low latency** - Optimized for remote control
-- ✅ **Open source** - No vendor lock-in
-
-### How to Connect with RustDesk
-
-#### Step 1: Download RustDesk Client
-
-Download from: https://rustdesk.com/download
-
-| OS | Download |
-|----|----------|
-| Windows | [EXE](https://github.com/rustdesk/rustdesk/releases/download/1.4.5/rustdesk-1.4.5-x86_64.exe) |
-| macOS (Intel) | [DMG](https://github.com/rustdesk/rustdesk/releases/download/1.4.5/rustdesk-1.4.5-x86_64.dmg) |
-| macOS (Apple Silicon) | [DMG](https://github.com/rustdesk/rustdesk/releases/download/1.4.5/rustdesk-1.4.5-aarch64.dmg) |
-| Linux | [DEB](https://github.com/rustdesk/rustdesk/releases/download/1.4.5/rustdesk-1.4.5-x86_64.deb) / [AppImage](https://github.com/rustdesk/rustdesk/releases/download/1.4.5/rustdesk-1.4.5-x86_64.AppImage) |
-
-#### Step 2: Start a RustDesk Session
-
-1. Go to **Actions** → **"🦀 Start Mac Session (RustDesk)"**
-2. Click **"Run workflow"**
-3. Configure duration and runner size
-4. Click **"Run workflow"**
-
-#### Step 3: Get Connection Details
-
-1. Wait for the workflow to reach "Keep Session Alive" step
-2. Check the **logs** for the RustDesk ID
-3. Download the **"connection-credentials"** artifact for the password
-
-#### Step 4: Connect
-
-1. Open RustDesk on your computer
-2. Enter the **RustDesk ID** from the workflow logs
-3. Enter the **password** from the artifact file
-4. Click **Connect**!
-
-### Connection Methods Comparison
-
-| Feature | RustDesk | VNC + Tunnel | Parsec |
-|---------|----------|--------------|--------|
-| Setup Required | None | cloudflared | Account |
-| Latency | Low | Medium | Very Low |
-| Video Quality | Excellent | Good | Best |
-| Audio Support | Yes | No | Yes |
-| File Transfer | Yes | No | Yes |
-| Cross-platform | Yes | Yes | Yes |
-| Open Source | Yes | Partial | No |
-| Works on Free Plan | Yes | Yes | Yes |
+1. Configure `max_chains` (máx 3 = 18 horas total)
+2. O sistema inicia nova sessão automaticamente antes do timeout
+3. Novas credenciais são geradas para cada encadeamento
+4. ~30 segundos de downtime entre encadeamentos
 
 ---
 
-## 🎮 Parsec (Optional - Better Performance)
+## 🦀 Por que RustDesk?
 
-Parsec provides lower latency and better video quality than VNC.
+Testamos várias opções de acesso remoto. Apenas o **RustDesk** funciona de forma confiável em VMs do GitHub Actions:
 
-### Setup Parsec (Windows)
+| Método | Status | Motivo |
+|--------|--------|--------|
+| **RustDesk** | ✅ Funciona | Usa método próprio de captura de tela |
+| VNC | ❌ Não funciona | Screen Sharing bloqueado em VMs |
+| Parsec | ❌ Não funciona | Requer permissões GUI não disponíveis em VMs |
 
-#### Step 1: Get your Session ID
+### Vantagens do RustDesk
 
-**Option A: From Parsec app files**
-
-1. Open File Explorer
-2. Navigate to `%AppData%\Parsec\`
-3. Look for your session info in the config files
-
-**Option B: Via PowerShell (recommended)**
-
-```powershell
-# Replace with your actual credentials
-$body = @{
-    email = "your@email.com"
-    password = "yourpassword"
-    tfa = "123456"  # Your 2FA code (get it fresh, expires in 30 seconds!)
-} | ConvertTo-Json
-
-$response = Invoke-RestMethod -Uri 'https://kessel-api.parsecgaming.com/v1/auth' -Method POST -ContentType 'application/json' -Body $body
-$response.session_id
-```
-
-**Option C: Via Command Prompt (curl)**
-
-First, install curl or use Git Bash:
-```bash
-curl -X POST https://kessel-api.parsecgaming.com/v1/auth \
-  -H "Content-Type: application/json" \
-  -d "{\"email\":\"your@email.com\",\"password\":\"yourpassword\",\"tfa\":\"123456\"}"
-```
-
-> ⚠️ **Important**: The `tfa` field is your 2FA authenticator code. Get it right before running the command - it expires in 30 seconds!
-
-#### Step 2: Add to GitHub Secrets
-
-1. Go to your repository **Settings** → **Secrets and variables** → **Actions**
-2. Click **"New repository secret"**
-3. Name: `PARSEC_SESSION_ID`
-4. Value: Your session_id from Step 1
-5. Click **"Add secret"**
-
-#### Step 3: Run Parsec Workflow
-
-1. Go to **Actions** → **"🎮 Parsec Mac Session"**
-2. Click **"Run workflow"**
-3. Wait for it to start
-4. Open Parsec app on your computer
-5. Look for the host named `GitHub-Mac-XXXXX` in your computers list
-6. Click to connect!
-
-### Parsec vs VNC Comparison
-
-| Feature | VNC | Parsec |
-|---------|-----|--------|
-| Video Quality | Good | Excellent |
-| Latency | Medium | Low |
-| Audio | No | Yes |
-| Gamepad Support | No | Yes |
-| Requires Account | No | Yes |
-| Setup Complexity | Easy | Medium |
+- ✅ **Sem configuração de túnel** - Usa servidores relay automaticamente
+- ✅ **Sem conta necessária** - Apenas ID e senha
+- ✅ **Multiplataforma** - Windows, macOS, Linux, iOS, Android
+- ✅ **Baixa latência** - Otimizado para controle remoto
+- ✅ **Open source** - Gratuito e sem vendor lock-in
+- ✅ **Áudio e transferência de arquivos** - Recursos avançados incluídos
 
 ---
 
-## 📁 Project Structure
+## 📁 Estrutura do Projeto
 
 ```
 .
 ├── .github/
 │   └── workflows/
-│       ├── mac-session.yml        # VNC session
-│       ├── rustdesk-session.yml   # RustDesk session (recommended)
-│       ├── extended-session.yml   # Session with chaining
-│       └── parsec-session.yml     # Session with Parsec
+│       ├── rustdesk-session.yml   # Sessão RustDesk (principal)
+│       └── extended-session.yml   # Sessão com encadeamento
 ├── scripts/
-│   ├── setup-vnc.sh              # Configures Screen Sharing
-│   ├── setup-rustdesk.sh         # Configures RustDesk
-│   ├── setup-tunnel.sh           # Starts tunnel
-│   ├── setup-parsec.sh           # Configures Parsec
-│   ├── keep-alive.sh             # Keeps session active
-│   ├── show-credentials.sh       # Shows credentials
-│   └── system-info.sh            # System info
+│   ├── setup-rustdesk.sh         # Configura RustDesk
+│   ├── keep-alive.sh             # Mantém sessão ativa
+│   └── system-info.sh            # Informações do sistema
 ├── configs/
-│   └── hardware-tiers.json       # Hardware configurations
+│   └── hardware-tiers.json       # Configurações de hardware
 └── README.md
 ```
 
 ---
 
-## 🔧 Advanced Configuration
+## 🔐 Segurança
 
-### Available Secrets
+### Proteção de Credenciais
 
-| Secret | Description | Required |
-|--------|-------------|----------|
-| `PARSEC_SESSION_ID` | Parsec session ID | Only for Parsec |
-| `NGROK_AUTH_TOKEN` | ngrok auth token (increases limits) | No |
+- **Senha RustDesk**: Exibida apenas nos logs (visível só para quem tem acesso)
+- **Sessão Efêmera**: Tudo é destruído quando o workflow termina
+- **ID Único**: Cada sessão gera um novo ID
 
-### Environment Variables
+### Para Repositórios Públicos
 
-Workflows use these variables (configurable via inputs):
+Se seu repositório é público:
+1. Qualquer pessoa pode ver os logs (incluindo ID e senha)
+2. Para maior segurança, use repositório **privado**
 
-- `SESSION_DURATION`: Duration in hours
-- `TUNNEL_TYPE`: `cloudflared` or `ngrok`
-- `VNC_PASSWORD`: Auto-generated per session
+### Recomendação
 
----
-
-## 🔐 Security
-
-### Credential Protection
-
-- **VNC Password**: Stored in private artifact (not visible in public logs)
-- **Tunnel URL**: Visible in logs (needed for connection)
-- **Session**: Ephemeral - everything is destroyed when workflow ends
-
-### For Public Repositories
-
-If your repository is public:
-1. Credentials are saved to a downloadable artifact
-2. Only repository collaborators can download artifacts
-3. Tunnel URL is public but useless without the password
-
-### Recommendation
-
-For maximum security, make your repository **private**. This ensures all logs and artifacts are only visible to you.
+Para máxima segurança, mantenha o repositório **privado**. Isso garante que logs e credenciais sejam visíveis apenas para colaboradores.
 
 ---
 
 ## ❓ Troubleshooting
 
-### "Cannot connect to VNC"
+### "RustDesk não conecta"
 
-1. Make sure cloudflared is running locally
-2. Verify you're using the correct tunnel URL
-3. Try `localhost:5900` in VNC client
-4. Check if the workflow is still in "Keep Session Alive" step
+1. Verifique se o workflow ainda está no passo "Keep Session Alive"
+2. Confirme que o ID e senha estão corretos
+3. Teste sua conexão de internet
+4. Aguarde alguns segundos e tente novamente
 
-### "Tunnel won't start"
+### "Sessão terminou antes do esperado"
 
-1. Check workflow logs for errors
-2. Try ngrok as an alternative
-3. For ngrok, configure `NGROK_AUTH_TOKEN` secret
+1. GitHub tem timeout máximo de 6h por job
+2. Use "Extended Session" para sessões mais longas
+3. Verifique se o keep-alive está gerando output nos logs
 
-### "Parsec host not appearing"
+### "Tela preta ou sem resposta"
 
-1. Confirm `PARSEC_SESSION_ID` is correct
-2. Make sure you're logged into the same Parsec account
-3. Wait a few seconds and refresh
-4. Check if the workflow completed the Parsec setup step
+1. Aguarde alguns segundos - a VM pode estar inicializando
+2. Tente mover o mouse ou pressionar uma tecla
+3. Se persistir, cancele e inicie nova sessão
 
-### "Session ended early"
+### "Runners Large/XLarge não aparecem"
 
-1. GitHub has a 6h max timeout
-2. Use "Extended Session" for longer sessions
-3. Check if keep-alive is generating output
-
-### "Authentication error" in VNC
-
-1. Make sure you're using the password from the artifact file
-2. The password is case-sensitive
-3. Try downloading the artifact again
+1. Verifique se sua organização tem plano Team ou Enterprise
+2. Configure os larger runners em Settings → Actions → Runners
+3. Os runners precisam estar habilitados para o repositório
 
 ---
 
-## ⚖️ Responsible Use
+## ⚖️ Uso Responsável
 
-This project is for **legitimate development and testing**:
+Este projeto é para **desenvolvimento e testes legítimos**:
 
-- ✅ Testing iOS/macOS apps
-- ✅ Occasional development work
-- ✅ CI/CD that requires macOS environment
-- ❌ 24/7 usage (use MacStadium for that)
-- ❌ Mining or abusive workloads
+- ✅ Testar apps iOS/macOS
+- ✅ Desenvolvimento ocasional
+- ✅ CI/CD que requer ambiente macOS
+- ✅ Compilação de projetos Swift/Xcode
+- ❌ Uso 24/7 (use MacStadium para isso)
+- ❌ Mining ou workloads abusivos
 
-GitHub may suspend accounts that abuse resources.
-
----
-
-## 📄 License
-
-MIT License - Use freely, but at your own risk.
+⚠️ O GitHub pode suspender contas que abusem dos recursos.
 
 ---
 
-## 🙏 Credits
+## 🔧 Configuração Avançada
 
-- **GitHub Actions** - Infrastructure
-- **Cloudflare** - Free tunnels via cloudflared
-- **RustDesk** - Open-source remote desktop
-- **Parsec** - High-performance streaming
+### Variáveis de Ambiente
+
+Os workflows usam estas variáveis:
+
+| Variável | Descrição | Padrão |
+|----------|-----------|--------|
+| `SESSION_DURATION` | Duração em horas | 2 |
+| `RUSTDESK_PASSWORD` | Senha (auto-gerada) | Aleatória |
+
+### Customização
+
+Para customizar o comportamento, edite o workflow em `.github/workflows/rustdesk-session.yml`.
+
+---
+
+## 📄 Licença
+
+MIT License - Use livremente, mas por sua conta e risco.
+
+---
+
+## 🙏 Créditos
+
+- **GitHub Actions** - Infraestrutura de runners
+- **RustDesk** - Software de acesso remoto open-source
+- **SANSI GROUP** - Manutenção e melhorias
 
 ---
 
 <p align="center">
-  <b>Made with ❤️ for the community</b><br>
-  <sub>Star ⭐ if this project helped you!</sub>
+  <b>Desenvolvido pela SANSI GROUP</b><br>
+  <sub>⭐ Dê uma estrela se este projeto te ajudou!</sub>
 </p>
