@@ -38,53 +38,66 @@ jobs:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
-      - name: 🔐 Set macOS User Password
+      - name: 🔐 Create Admin User for GUI Authentication
         run: |
-          # Get current username
-          CURRENT_USER=$(whoami)
-          echo "MAC_USER=${CURRENT_USER}" >> $GITHUB_ENV
-          echo "👤 Current user: ${CURRENT_USER}"
+          # Create a new admin user that will appear in Users & Groups
+          ADMIN_USER="yourname"
+          echo "MAC_USER=${ADMIN_USER}" >> $GITHUB_ENV
           
-          # Add current user to admin group (so they can authenticate in System Settings)
-          echo "👑 Adding ${CURRENT_USER} to admin group..."
-          sudo dseditgroup -o edit -a "${CURRENT_USER}" -t user admin
-          
-          # Verify admin membership
-          if dseditgroup -o checkmember -m "${CURRENT_USER}" admin 2>/dev/null; then
-            echo "✅ ${CURRENT_USER} is now an admin"
-          else
-            echo "⚠️  Could not add to admin group"
-          fi
-          
-          # Generate a secure password for the current user
+          # Generate a secure password
           MAC_PASSWORD=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12)
           
           # Mask password in logs
           echo "::add-mask::${MAC_PASSWORD}"
           echo "MAC_PASSWORD=${MAC_PASSWORD}" >> $GITHUB_ENV
           
-          echo "🔐 Setting password for ${CURRENT_USER}..."
+          echo "👤 Creating admin user: ${ADMIN_USER}"
           
-          # The runner user typically has no password set, so we can set one directly
-          # Try with empty old password first (most likely for runner user)
-          if sudo dscl . -passwd /Users/${CURRENT_USER} "" "${MAC_PASSWORD}" 2>/dev/null; then
-            echo "✅ Password set successfully (user had no password)"
-          elif sudo sysadminctl -resetPasswordFor "${CURRENT_USER}" -newPassword "${MAC_PASSWORD}" 2>/dev/null; then
-            echo "✅ Password set via sysadminctl"
+          # Check if user already exists
+          if id "${ADMIN_USER}" &>/dev/null; then
+            echo "User ${ADMIN_USER} already exists, setting password..."
+            sudo dscl . -passwd /Users/${ADMIN_USER} "" "${MAC_PASSWORD}" 2>/dev/null || \
+            sudo sysadminctl -resetPasswordFor "${ADMIN_USER}" -newPassword "${MAC_PASSWORD}" 2>/dev/null || true
           else
-            # Try to create password directly using shadow hash
-            echo "⚠️  Standard methods failed, trying alternative..."
-            # This works because we have sudo access
-            sudo dscl . -passwd /Users/${CURRENT_USER} "${MAC_PASSWORD}" 2>/dev/null && \
-              echo "✅ Password set via direct dscl" || \
-              echo "⚠️  Could not set password automatically"
+            # Find a free UID (starting from 501 for regular users)
+            LAST_UID=$(dscl . -list /Users UniqueID | awk '{print $2}' | sort -n | tail -1)
+            NEW_UID=$((LAST_UID + 1))
+            
+            echo "   Creating user with UID: ${NEW_UID}"
+            
+            # Create the user
+            sudo dscl . -create /Users/${ADMIN_USER}
+            sudo dscl . -create /Users/${ADMIN_USER} UserShell /bin/zsh
+            sudo dscl . -create /Users/${ADMIN_USER} RealName "Your Name"
+            sudo dscl . -create /Users/${ADMIN_USER} UniqueID ${NEW_UID}
+            sudo dscl . -create /Users/${ADMIN_USER} PrimaryGroupID 20
+            sudo dscl . -create /Users/${ADMIN_USER} NFSHomeDirectory /Users/${ADMIN_USER}
+            
+            # Set password
+            sudo dscl . -passwd /Users/${ADMIN_USER} "${MAC_PASSWORD}"
+            
+            # Add to admin group
+            sudo dseditgroup -o edit -a ${ADMIN_USER} -t user admin
+            
+            # Create home directory
+            sudo createhomedir -c -u ${ADMIN_USER} 2>/dev/null || sudo mkdir -p /Users/${ADMIN_USER}
+            sudo chown -R ${ADMIN_USER}:staff /Users/${ADMIN_USER} 2>/dev/null || true
+          fi
+          
+          # Verify user was created and is admin
+          if id "${ADMIN_USER}" &>/dev/null; then
+            echo "✅ User ${ADMIN_USER} created successfully"
+            if dseditgroup -o checkmember -m "${ADMIN_USER}" admin 2>/dev/null; then
+              echo "✅ User ${ADMIN_USER} is an admin"
+            fi
+          else
+            echo "❌ Failed to create user"
           fi
           
           echo ""
-          echo "   Use this password for:"
-          echo "   - System Settings authentication"
-          echo "   - Privacy & Security permissions"
-          echo "   - Parsec permissions setup"
+          echo "   Use these credentials for System Settings:"
+          echo "   User: ${ADMIN_USER}"
+          echo "   Password: (in artifact file)"
 
       - name: 📊 System Information
         run: |
