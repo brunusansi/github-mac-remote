@@ -90,10 +90,10 @@ Download from: **https://rustdesk.com/download**
 | Tier | Runner | vCPUs | RAM | Chip | Plans |
 |------|--------|-------|-----|------|-------|
 | **Standard** | `macos-{version}` | 3 | 7 GB | M1 | Free, Pro, Team, Enterprise |
-| **Large** | `macos-{version}-large` | 12 | 30 GB | M1 Pro* | Team, Enterprise |
+| **Large** | `macos-{version}-large` | 12 | 30 GB | M1 Pro | Team, Enterprise |
 | **XLarge** | `macos-{version}-xlarge` | 24 | 70 GB | M1 Max | Enterprise |
 
-> \* Note: Some "large" runners may use Intel architecture. The system auto-detects CPU type and downloads the correct binaries.
+> ⚠️ **Note:** Some "large" runners may use Intel architecture. The system auto-detects CPU type and downloads the correct binaries.
 
 ---
 
