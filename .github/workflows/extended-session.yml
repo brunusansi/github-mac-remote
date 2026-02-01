@@ -53,7 +53,7 @@ jobs:
   extended-session:
     name: 🖥️ Extended Session (Chain ${{ github.event.inputs.current_chain }}/${{ github.event.inputs.max_chains }})
     runs-on: ${{ github.event.inputs.runner_size == 'xlarge' && 'macos-14-xlarge' || github.event.inputs.runner_size == 'large' && 'macos-14-large' || 'macos-14' }}
-    timeout-minutes: ${{ fromJSON(github.event.inputs.duration) * 60 + 15 }}
+    timeout-minutes: 375
     
     steps:
       - name: 📥 Checkout repository

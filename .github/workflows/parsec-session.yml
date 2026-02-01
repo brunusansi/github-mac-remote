@@ -36,7 +36,7 @@ jobs:
   parsec-session:
     name: 🎮 Parsec Remote Session
     runs-on: ${{ github.event.inputs.runner_size == 'xlarge' && 'macos-14-xlarge' || github.event.inputs.runner_size == 'large' && 'macos-14-large' || 'macos-14' }}
-    timeout-minutes: ${{ fromJSON(github.event.inputs.duration) * 60 + 10 }}
+    timeout-minutes: 370
     
     steps:
       - name: 📥 Checkout repository
