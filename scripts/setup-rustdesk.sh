@@ -180,37 +180,21 @@ if [ -f "${RUSTDESK_CLI}" ]; then
     
     sleep 3
     
-    # Try to verify/retrieve the actual password RustDesk is using
-    echo "   🔍 Checking RustDesk's actual password configuration..."
+    # NOTE: Do NOT use --get-password as it hangs/opens GUI dialog
+    # Since we saw "Done!" output, the password was set successfully
     
-    # Method: Try --get-password CLI option
-    ACTUAL_PASSWORD=$(sudo "${RUSTDESK_CLI}" --get-password 2>&1 || echo "")
-    echo "   Get-password output: ${ACTUAL_PASSWORD}"
-    
-    # If we got a password from RustDesk, use that instead
-    if [ -n "${ACTUAL_PASSWORD}" ] && ! echo "${ACTUAL_PASSWORD}" | grep -qi "error\|not found\|usage"; then
-        if [ "${ACTUAL_PASSWORD}" != "${RUSTDESK_PASSWORD}" ]; then
-            echo "   📝 RustDesk has a different password than we set"
-            echo "   📝 Using RustDesk's password: ${ACTUAL_PASSWORD}"
-            RUSTDESK_PASSWORD="${ACTUAL_PASSWORD}"
-            echo "RUSTDESK_PASSWORD=${RUSTDESK_PASSWORD}" >> $GITHUB_ENV
-        fi
-    fi
-    
-    # Also dump what's in the config directory for debugging
+    # Dump what's in the config directory for debugging
     echo ""
     echo "   📂 Checking config directory structure..."
     ls -la "${RUSTDESK_CONFIG_DIR}/" 2>/dev/null || echo "   Config dir not accessible"
     
-    # Check for any files RustDesk created
+    # Show the config file contents (not using find as it may hang in subshell)
     echo ""
-    echo "   📂 All RustDesk config files:"
-    find "${RUSTDESK_CONFIG_DIR}" -type f 2>/dev/null | while read f; do
-        echo "   File: $f"
-        echo "   Contents:"
-        cat "$f" 2>/dev/null | head -20
-        echo ""
-    done
+    echo "   📄 RustDesk.toml:"
+    cat "${RUSTDESK_CONFIG_DIR}/RustDesk.toml" 2>/dev/null || echo "   (not found)"
+    echo ""
+    echo "   📄 RustDesk2.toml:"
+    cat "${RUSTDESK_CONFIG_DIR}/RustDesk2.toml" 2>/dev/null || echo "   (not found)"
 fi
 
 # Check if RustDesk is running
