@@ -1,10 +1,11 @@
 # 🍎 GitHub Mac Remote
 
-> **Access Apple Silicon Macs (M1/M2/M3/M4) remotely through GitHub Actions**
+> **Access Apple Silicon Macs and Windows machines remotely through GitHub Actions**
 
-Turn GitHub Actions runners into remotely accessible Macs. An alternative to services like MacStadium, using GitHub's infrastructure.
+Turn GitHub Actions runners into remotely accessible desktops. macOS via RustDesk, Windows via RDP + Tailscale.
 
 [![RustDesk Session](https://img.shields.io/badge/🦀_Start_Session-RustDesk-orange?style=for-the-badge)](../../actions/workflows/rustdesk-session.yml)
+[![RDP Session](https://img.shields.io/badge/🖥️_Start_Session-Windows_RDP-blue?style=for-the-badge)](../../actions/workflows/rdp-session.yml)
 
 ---
 
@@ -21,6 +22,7 @@ Turn GitHub Actions runners into remotely accessible Macs. An alternative to ser
 | 📊 **Multiple Sizes** | Standard, Large, XLarge |
 | 🔒 **Secure Credentials** | Passwords never shown in logs |
 | 🌐 **Unique IP Guarantee** | Each session gets a fresh, unique IP via Cloudflare WARP |
+| 🖥️ **Windows RDP** | Full Windows desktop via Tailscale + RDP |
 | 📋 **IP Tracking** | Tracks IP history per user to detect duplicates |
 
 ---
@@ -164,6 +166,66 @@ The credentials artifact includes:
 
 ---
 
+## 🖥️ Windows RDP (via Tailscale)
+
+Access a full Windows desktop remotely using **RDP over Tailscale**. No port forwarding or public IP required.
+
+### Prerequisites
+
+1. **Tailscale Account** — Create one at [tailscale.com](https://tailscale.com)
+2. **Tailscale Auth Key** — Generate a reusable auth key at [admin/settings/keys](https://login.tailscale.com/admin/settings/keys)
+3. **GitHub Secret** — Add the auth key as `TAILSCALE_AUTH_KEY` in your repository secrets
+
+### Setup Tailscale Secret
+
+```bash
+# Using GitHub CLI
+gh secret set TAILSCALE_AUTH_KEY --repo your-username/github-mac-remote
+```
+
+Or go to **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
+
+### Start a Windows RDP Session
+
+1. Go to **Actions** → **"🖥️ Windows RDP Session"**
+2. Click **"Run workflow"**
+3. Configure:
+   - **Duration**: Session time (1-6 hours)
+   - **Unique IP**: Enable IP tracking
+4. Click **"Run workflow"**
+
+### Connect via RDP
+
+1. **Install Tailscale** on your device: [tailscale.com/download](https://tailscale.com/download)
+2. **Join the same Tailscale network** (sign in with the same account)
+3. Download the **artifact** `rdp-credentials-<your-username>-<run-id>` from the Summary tab
+4. Open **Remote Desktop Connection** (`mstsc.exe` on Windows, or "Microsoft Remote Desktop" on macOS)
+5. Enter the **Tailscale IP** from the credentials file
+6. Username: `RDP` / Password: from credentials file
+7. **Connected!** 🎉
+
+### How It Works
+
+```
+1. GitHub Actions starts a Windows runner
+   ↓
+2. RDP is enabled via registry settings
+   ↓
+3. A dedicated RDP user is created with a secure random password
+   ↓
+4. Tailscale is installed and connects to your tailnet
+   ↓
+5. RDP is verified accessible via Tailscale IP on port 3389
+   ↓
+6. Credentials saved to private artifact
+   ↓
+7. Connect from any device on the same Tailscale network
+```
+
+> 🔒 **Security**: The RDP connection is tunneled through Tailscale's encrypted network. No ports are exposed to the public internet.
+
+---
+
 ## ⏱️ Time Limits
 
 | Plan | Minutes/month | Max per session |
@@ -275,8 +337,9 @@ In repositories with multiple collaborators:
 .
 ├── .github/
 │   └── workflows/
-│       ├── rustdesk-session.yml   # RustDesk session (main)
-│       └── extended-session.yml   # Session with chaining
+│       ├── rustdesk-session.yml   # RustDesk Mac session (main)
+│       ├── extended-session.yml   # Mac session with chaining
+│       └── rdp-session.yml       # Windows RDP session (Tailscale)
 ├── scripts/
 │   ├── setup-rustdesk.sh         # Configures RustDesk
 │   ├── install-parsec.sh         # Installs Parsec (optional)
@@ -371,6 +434,8 @@ Workflows use these variables:
 | `IP_IS_DUPLICATE` | Whether this IP was used before | false |
 | `RUSTDESK_PASSWORD` | RustDesk password (auto-generated) | Random |
 | `MAC_PASSWORD` | macOS user password (auto-generated) | Random |
+| `TAILSCALE_IP` | Tailscale IP for RDP connection (Windows) | Auto-assigned |
+| `RDP_PASSWORD` | Windows RDP user password (auto-generated) | Random |
 
 ### Customization
 
@@ -389,6 +454,7 @@ MIT License - Use freely, but at your own risk.
 - **GitHub Actions** - Runner infrastructure
 - **RustDesk** - Open-source remote desktop software
 - **Parsec** - Low-latency game streaming technology
+- **Tailscale** - Secure mesh VPN for RDP connections
 
 ---
 
