@@ -1,0 +1,38 @@
+options:
+  machineType: 'N1_HIGHCPU_96'
+  diskSizeGb: 200
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  # Instalar dependências
+  - name: 'gcr.io/cloud-builders/npm'
+    args: ['install']
+  
+  # Rodar testes
+  - name: 'gcr.io/cloud-builders/npm'
+    args: ['test']
+  
+  # Build da aplicação
+  - name: 'gcr.io/cloud-builders/npm'
+    args: ['run', 'build']
+  
+  # Criar imagem Docker (opcional)
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/my-app:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/my-app:latest'
+      - '.'
+  
+  # Push da imagem (opcional)
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/my-app:$COMMIT_SHA']
+
+# Salvar imagens como artifacts
+images:
+  - 'gcr.io/$PROJECT_ID/my-app:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/my-app:latest'
+
+timeout: '1800s'  # 30 minutos
