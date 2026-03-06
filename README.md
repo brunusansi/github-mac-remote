@@ -1,11 +1,11 @@
 # 🍎 GitHub Mac Remote
 
-> **Access Apple Silicon Macs and Windows machines remotely through GitHub Actions**
+> **Access Apple Silicon Macs remotely through GitHub Actions — RustDesk, VNC, or Parsec**
 
-Turn GitHub Actions runners into remotely accessible desktops. macOS via RustDesk, Windows via RDP + Tailscale.
+Turn GitHub Actions macOS runners into remotely accessible desktops. Connect via RustDesk, VNC over Tailscale, or Parsec.
 
 [![RustDesk Session](https://img.shields.io/badge/🦀_Start_Session-RustDesk-orange?style=for-the-badge)](../../actions/workflows/rustdesk-session.yml)
-[![RDP Session](https://img.shields.io/badge/🖥️_Start_Session-Windows_RDP-blue?style=for-the-badge)](../../actions/workflows/rdp-session.yml)
+[![VNC Session](https://img.shields.io/badge/🖥️_Start_Session-VNC_Tailscale-blue?style=for-the-badge)](../../actions/workflows/vnc-session.yml)
 
 ---
 
@@ -19,10 +19,10 @@ Turn GitHub Actions runners into remotely accessible desktops. macOS via RustDes
 | 🔐 **Admin User Created** | Dedicated admin account for system authentication |
 | ⏱️ **Configurable Sessions** | From 1h to 6h per session |
 | 🔗 **Extended Sessions** | Auto-chaining for >6h sessions |
-| 📊 **Multiple Sizes** | Standard, Large, XLarge |
+| 📊 **Multiple Sizes** | Standard, Large, XLarge, Intel (macOS 26) |
 | 🔒 **Secure Credentials** | Passwords never shown in logs |
 | 🌐 **Unique IP Guarantee** | Each session gets a fresh, unique IP via Cloudflare WARP |
-| 🖥️ **Windows RDP** | Full Windows desktop via Tailscale + RDP |
+| 🖥️ **macOS VNC** | Full Mac desktop via VNC + Tailscale |
 | 📋 **IP Tracking** | Tracks IP history per user to detect duplicates |
 
 ---
@@ -55,7 +55,7 @@ Download from: **https://rustdesk.com/download**
 2. Click **"Run workflow"**
 3. Configure:
    - **Duration**: Session time (1-6 hours)
-   - **macOS Version**: Choose 14 (Sonoma), 15 (Sequoia), or 26 (Tahoe beta)
+   - **macOS Version**: Choose 14 (Sonoma), 15 (Sequoia), or 26 (Tahoe)
    - **Runner size**: Mac size (see table below)
    - **Unique IP**: Enable to guarantee a fresh IP via Cloudflare WARP VPN
 4. Click **"Run workflow"**
@@ -92,13 +92,18 @@ Download from: **https://rustdesk.com/download**
 
 ## 📊 Runner Sizes
 
-| Tier | Runner | vCPUs | RAM | Chip | Plans |
-|------|--------|-------|-----|------|-------|
-| **Standard** | `macos-{version}` | 3 | 7 GB | M1 | Free, Pro, Team, Enterprise |
-| **Large** | `macos-{version}-large` | 12 | 30 GB | M1 Pro | Team, Enterprise |
-| **XLarge** | `macos-{version}-xlarge` | 24 | 70 GB | M1 Max | Enterprise |
+| Tier | Runner | vCPUs | RAM | Arch | Chip | Plans |
+|------|--------|-------|-----|------|------|-------|
+| **Standard** | `macos-{version}` | 3 | 7 GB | arm64 | M1 | Free, Pro, Team, Enterprise |
+| **Intel** | `macos-26-intel` | 4 | 14 GB | x64 | Intel Xeon | Free, Pro, Team, Enterprise |
+| **Large** | `macos-{version}-large` | 12 | 30 GB | arm64 (14/15) / x64 (26) | M1 Pro / Intel | Team, Enterprise |
+| **XLarge** | `macos-{version}-xlarge` | 24 (14/15) / 5+8GPU (26) | 70 GB (14/15) / 14 GB (26) | arm64 | M1 Max / M2 | Enterprise |
 
-> ⚠️ **Note:** Some "large" runners may use Intel architecture. The system auto-detects CPU type and downloads the correct binaries.
+> ⚠️ **Important:** macOS 26 (Tahoe) has **different hardware** than 14/15:
+> - `large` runs on **Intel x64** (not ARM like 14/15)
+> - `xlarge` uses **M2** with 8-core GPU (5 vCPU + 14 GB RAM)
+> - New `intel` tier available — standard Intel x64 runner
+> - The system auto-detects CPU type and downloads the correct binaries
 
 ---
 
@@ -106,11 +111,11 @@ Download from: **https://rustdesk.com/download**
 
 | Version | Codename | Status | Notes |
 |---------|----------|--------|-------|
-| **14** | Sonoma | ✅ Stable | Default, M1 ARM64 |
-| **15** | Sequoia | ✅ Available | Newer features |
-| **26** | Tahoe | ⚠️ Beta | Latest beta, may be unstable |
+| **14** | Sonoma | ✅ GA | Default, M1 ARM64 |
+| **15** | Sequoia | ✅ GA | Newer features |
+| **26** | Tahoe | ✅ GA | Latest release, mixed ARM64/Intel (see runner sizes) |
 
-> 💡 **Tip**: Use macOS 14 for maximum stability. Use newer versions to test compatibility with upcoming macOS releases.
+> 💡 **Tip**: Use macOS 14 for maximum stability. macOS 26 offers new `intel` tier and different hardware configs.
 
 ### Larger Runners (Large/XLarge)
 
@@ -166,15 +171,16 @@ The credentials artifact includes:
 
 ---
 
-## 🖥️ Windows RDP (via Tailscale)
+## 🖥️ macOS VNC (via Tailscale)
 
-Access a full Windows desktop remotely using **RDP over Tailscale**. No port forwarding or public IP required.
+Access a full macOS desktop remotely using **VNC (Screen Sharing) over Tailscale**. No port forwarding or public IP required.
 
 ### Prerequisites
 
 1. **Tailscale Account** — Create one at [tailscale.com](https://tailscale.com)
 2. **Tailscale Auth Key** — Generate a reusable auth key at [admin/settings/keys](https://login.tailscale.com/admin/settings/keys)
 3. **GitHub Secret** — Add the auth key as `TAILSCALE_AUTH_KEY` in your repository secrets
+4. **VNC Client** — Built-in on macOS (Screen Sharing), or use RealVNC/TightVNC on Windows/Linux
 
 ### Setup Tailscale Secret
 
@@ -185,45 +191,49 @@ gh secret set TAILSCALE_AUTH_KEY --repo your-username/github-mac-remote
 
 Or go to **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
 
-### Start a Windows RDP Session
+### Start a VNC Session
 
-1. Go to **Actions** → **"🖥️ Windows RDP Session"**
+1. Go to **Actions** → **"🖥️ macOS VNC Session (Tailscale)"**
 2. Click **"Run workflow"**
 3. Configure:
+   - **macOS Version**: 14 (Sonoma), 15 (Sequoia), or 26 (Tahoe)
+   - **Runner Size**: Standard, Large, XLarge, or Intel (macOS 26 only)
    - **Duration**: Session time (1-6 hours)
-   - **Unique IP**: Enable IP tracking
 4. Click **"Run workflow"**
 
-### Connect via RDP
+### Connect via VNC
 
 1. **Install Tailscale** on your device: [tailscale.com/download](https://tailscale.com/download)
 2. **Join the same Tailscale network** (sign in with the same account)
-3. Download the **artifact** `rdp-credentials-<your-username>-<run-id>` from the Summary tab
-4. Open **Remote Desktop Connection** (`mstsc.exe` on Windows, or "Microsoft Remote Desktop" on macOS)
-5. Enter the **Tailscale IP** from the credentials file
-6. Username: `RDP` / Password: from credentials file
-7. **Connected!** 🎉
+3. Download the **artifact** `vnc-credentials-<your-username>-<run-id>` from the Summary tab
+4. Open your VNC client:
+   - **macOS**: Finder → Go → Connect to Server → `vnc://<tailscale-ip>:5900`
+   - **Windows**: Use RealVNC or TightVNC → `<tailscale-ip>:5900`
+   - **Linux**: Use Remmina or `vncviewer` → `<tailscale-ip>:5900`
+5. Enter the **Username** and **Password** from the credentials file
+6. **Connected!** 🎉
 
 ### How It Works
 
 ```
-1. GitHub Actions starts a Windows runner
+1. GitHub Actions starts a macOS runner (Apple Silicon or Intel)
    ↓
-2. RDP is enabled via registry settings
+2. macOS Screen Sharing (VNC) is enabled via kickstart
    ↓
-3. A dedicated RDP user is created with a secure random password
+3. A VNC password is set and an admin user is created
    ↓
 4. Tailscale is installed and connects to your tailnet
    ↓
-5. RDP is verified accessible via Tailscale IP on port 3389
+5. VNC is verified accessible on port 5900
    ↓
 6. Credentials saved to private artifact
    ↓
 7. Connect from any device on the same Tailscale network
 ```
 
-> 🔒 **Security**: The RDP connection is tunneled through Tailscale's encrypted network. No ports are exposed to the public internet.
+> 🔒 **Security**: The VNC connection is tunneled through Tailscale's encrypted mesh network. No ports are exposed to the public internet.
 
+> ⚠️ **Note**: On macOS 14+, VNC remote enablement may result in **view-only access** due to system restrictions. For full interactive control, macOS 14 Standard runner is recommended.
 ---
 
 ## ⏱️ Time Limits
@@ -339,7 +349,7 @@ In repositories with multiple collaborators:
 │   └── workflows/
 │       ├── rustdesk-session.yml   # RustDesk Mac session (main)
 │       ├── extended-session.yml   # Mac session with chaining
-│       └── rdp-session.yml       # Windows RDP session (Tailscale)
+│       └── vnc-session.yml        # macOS VNC session (Tailscale)
 ├── scripts/
 │   ├── setup-rustdesk.sh         # Configures RustDesk
 │   ├── install-parsec.sh         # Installs Parsec (optional)
@@ -434,8 +444,8 @@ Workflows use these variables:
 | `IP_IS_DUPLICATE` | Whether this IP was used before | false |
 | `RUSTDESK_PASSWORD` | RustDesk password (auto-generated) | Random |
 | `MAC_PASSWORD` | macOS user password (auto-generated) | Random |
-| `TAILSCALE_IP` | Tailscale IP for RDP connection (Windows) | Auto-assigned |
-| `RDP_PASSWORD` | Windows RDP user password (auto-generated) | Random |
+| `TAILSCALE_IP` | Tailscale IP for VNC connection | Auto-assigned |
+| `VNC_PASSWORD` | VNC password (auto-generated) | Random |
 
 ### Customization
 
@@ -454,7 +464,7 @@ MIT License - Use freely, but at your own risk.
 - **GitHub Actions** - Runner infrastructure
 - **RustDesk** - Open-source remote desktop software
 - **Parsec** - Low-latency game streaming technology
-- **Tailscale** - Secure mesh VPN for RDP connections
+- **Tailscale** - Secure mesh VPN for VNC connections
 
 ---
 

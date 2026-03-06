@@ -1,0 +1,290 @@
+name: 'macOS VNC Session (Tailscale)'
+
+on:
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: 'Session duration in hours'
+        required: true
+        default: '2'
+        type: choice
+        options:
+          - '1'
+          - '2'
+          - '3'
+          - '4'
+          - '5'
+          - '6'
+      macos_version:
+        description: 'macOS version'
+        required: true
+        default: '15'
+        type: choice
+        options:
+          - '14'
+          - '15'
+          - '26'
+      runner_size:
+        description: 'Runner size (standard=Free/Pro, large/xlarge=Team/Enterprise, intel=macOS 26 only)'
+        required: true
+        default: 'standard'
+        type: choice
+        options:
+          - 'standard'
+          - 'large'
+          - 'xlarge'
+          - 'intel'
+
+env:
+  SESSION_DURATION: ${{ github.event.inputs.duration }}
+
+jobs:
+  mac-vnc-session:
+    name: 'macOS VNC via Tailscale'
+    runs-on: ${{ github.event.inputs.runner_size == 'xlarge' && format('macos-{0}-xlarge', github.event.inputs.macos_version) || github.event.inputs.runner_size == 'large' && format('macos-{0}-large', github.event.inputs.macos_version) || github.event.inputs.runner_size == 'intel' && github.event.inputs.macos_version == '26' && 'macos-26-intel' || format('macos-{0}', github.event.inputs.macos_version) }}
+    timeout-minutes: 370
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Restore IP History Cache
+        uses: actions/cache@v4
+        with:
+          path: .ip-history.json
+          key: ip-history-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            ip-history-${{ runner.os }}-
+
+      - name: Detect IP and Location
+        run: |
+          chmod +x scripts/ip-manager.sh
+          ./scripts/ip-manager.sh
+
+      - name: Create admin user
+        run: |
+          echo "👤 Creating admin user for VNC authentication..."
+          VNC_USER="yourname"
+          VNC_PASSWORD=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12)
+          echo "::add-mask::${VNC_PASSWORD}"
+
+          # Create user account
+          sudo dscl . -create /Users/${VNC_USER}
+          sudo dscl . -create /Users/${VNC_USER} UserShell /bin/zsh
+          sudo dscl . -create /Users/${VNC_USER} RealName "VNC User"
+          sudo dscl . -create /Users/${VNC_USER} UniqueID 1001
+          sudo dscl . -create /Users/${VNC_USER} PrimaryGroupID 80
+          sudo dscl . -create /Users/${VNC_USER} NFSHomeDirectory /Users/${VNC_USER}
+          sudo dscl . -passwd /Users/${VNC_USER} "${VNC_PASSWORD}"
+          sudo dseditgroup -o edit -a ${VNC_USER} -t user admin
+          sudo createhomedir -c -u ${VNC_USER} 2>/dev/null || true
+
+          echo "VNC_USER=${VNC_USER}" >> $GITHUB_ENV
+          echo "VNC_PASSWORD=${VNC_PASSWORD}" >> $GITHUB_ENV
+          echo "✅ Admin user '${VNC_USER}' created"
+
+      - name: Collect System Info
+        run: |
+          chmod +x scripts/system-info.sh
+          ./scripts/system-info.sh
+
+      - name: Enable macOS Screen Sharing (VNC)
+        run: |
+          echo "🖥️ Enabling macOS Screen Sharing (VNC)..."
+
+          KICKSTART="/System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart"
+
+          # Enable Remote Management with VNC legacy support and set VNC password
+          sudo "${KICKSTART}" -activate -configure -access -on \
+            -allowAccessFor -allUsers \
+            -privs -all \
+            -clientopts -setvnclegacy -vnclegacy yes \
+            -clientopts -setvncpw -vncpw "${VNC_PASSWORD}" \
+            -restart -agent -menu
+
+          # Also enable Screen Sharing via launchctl as fallback
+          sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist 2>/dev/null || true
+
+          # Wait for VNC to start
+          sleep 5
+
+          # Verify VNC is listening on port 5900
+          echo "🔍 Checking VNC port 5900..."
+          MAX_ATTEMPTS=10
+          ATTEMPT=0
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            if sudo lsof -iTCP:5900 -sTCP:LISTEN 2>/dev/null | grep -q LISTEN; then
+              echo "✅ VNC is listening on port 5900"
+              break
+            fi
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "⏳ Waiting for VNC to start (attempt ${ATTEMPT}/${MAX_ATTEMPTS})..."
+            sleep 3
+          done
+
+          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+            echo "⚠️ VNC may not be listening on port 5900"
+            echo "📋 Listening ports:"
+            sudo lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null || echo "No listening ports found"
+            echo ""
+            echo "⚠️ NOTE: On macOS 14+, VNC may start in view-only mode without physical display."
+            echo "   Consider using macOS 14 (standard) runner for full remote control."
+          fi
+
+      - name: Install Tailscale
+        run: |
+          echo "🔗 Installing Tailscale..."
+
+          # Install via Homebrew (fastest on macOS runners)
+          brew install tailscale
+
+          # Start Tailscale daemon - try brew services first, then manual
+          sudo brew services start tailscale 2>/dev/null || {
+            echo "Starting tailscaled manually..."
+            # Handle both ARM (/opt/homebrew) and Intel (/usr/local) paths
+            TAILSCALED=$(which tailscaled 2>/dev/null || echo "/opt/homebrew/opt/tailscale/bin/tailscaled")
+            sudo mkdir -p /var/lib/tailscale /var/run/tailscale
+            sudo "${TAILSCALED}" --state=/var/lib/tailscale/tailscaled.state --socket=/var/run/tailscale/tailscaled.sock &
+            sleep 3
+          }
+
+          echo "✅ Tailscale installed"
+
+      - name: Connect Tailscale
+        env:
+          TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+        run: |
+          echo "🌐 Connecting to Tailscale network..."
+
+          if [ -z "${TAILSCALE_AUTH_KEY}" ]; then
+            echo "❌ ERROR: TAILSCALE_AUTH_KEY secret is not set!"
+            echo "Please add your Tailscale auth key as a repository secret."
+            echo "Get one at: https://login.tailscale.com/admin/settings/keys"
+            exit 1
+          fi
+
+          # Authenticate with Tailscale
+          sudo tailscale up --authkey="${TAILSCALE_AUTH_KEY}" --hostname="gh-vnc-${{ github.run_id }}"
+
+          # Wait for Tailscale IP
+          echo "⏳ Waiting for Tailscale IP..."
+          MAX_ATTEMPTS=15
+          ATTEMPT=0
+          TAILSCALE_IP=""
+
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            TAILSCALE_IP=$(tailscale ip -4 2>/dev/null || true)
+            if [ -n "${TAILSCALE_IP}" ]; then
+              echo "✅ Tailscale connected: ${TAILSCALE_IP}"
+              break
+            fi
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "⏳ Attempt ${ATTEMPT}/${MAX_ATTEMPTS}..."
+            sleep 5
+          done
+
+          if [ -z "${TAILSCALE_IP}" ]; then
+            echo "❌ Failed to get Tailscale IP after ${MAX_ATTEMPTS} attempts"
+            tailscale status || true
+            exit 1
+          fi
+
+          echo "TAILSCALE_IP=${TAILSCALE_IP}" >> $GITHUB_ENV
+
+      - name: Verify VNC via Tailscale
+        run: |
+          echo "🔍 Verifying VNC is accessible via Tailscale..."
+          echo "Tailscale IP: ${TAILSCALE_IP}"
+          echo "VNC Port: 5900"
+
+          # Verify VNC is still listening
+          if sudo lsof -iTCP:5900 -sTCP:LISTEN 2>/dev/null | grep -q LISTEN; then
+            echo "✅ VNC is listening on port 5900"
+          else
+            echo "⚠️ VNC port 5900 not detected - Screen Sharing may need manual verification"
+            echo "📋 All listening ports:"
+            sudo lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | head -20 || true
+          fi
+
+          # Show Tailscale status
+          echo ""
+          echo "📋 Tailscale Status:"
+          tailscale status || true
+
+      - name: Save connection credentials
+        run: |
+          mkdir -p credentials
+          cat > credentials/connection-info.txt << 'CREDENTIALS'
+╔══════════════════════════════════════════════════════╗
+║         macOS VNC Connection via Tailscale           ║
+╠══════════════════════════════════════════════════════╣
+CREDENTIALS
+
+          # Append dynamic values (not using quoted heredoc so vars expand)
+          cat >> credentials/connection-info.txt << EOF
+
+  Tailscale IP:  ${TAILSCALE_IP}
+  VNC Port:      5900
+  Username:      ${VNC_USER}
+  Password:      ${VNC_PASSWORD}
+
+  How to connect:
+  1. Install Tailscale on YOUR machine
+  2. Join the same Tailscale network
+  3. Open your VNC client:
+     - macOS: Finder → Go → Connect to Server
+       vnc://${TAILSCALE_IP}:5900
+     - Windows: Use RealVNC or TightVNC
+       ${TAILSCALE_IP}:5900
+     - Linux: Use Remmina or vncviewer
+       ${TAILSCALE_IP}:5900
+
+  Login with Username and Password above
+
+╚══════════════════════════════════════════════════════╝
+EOF
+          echo "✅ Credentials saved to artifact"
+
+      - name: Upload credentials artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vnc-credentials-${{ github.actor }}-${{ github.run_id }}
+          path: credentials/connection-info.txt
+          retention-days: 1
+
+      - name: Connection Instructions
+        run: |
+          echo ""
+          echo "╔══════════════════════════════════════════════════════════════╗"
+          echo "║                  🖥️  VNC SESSION READY                      ║"
+          echo "╠══════════════════════════════════════════════════════════════╣"
+          echo "║                                                              ║"
+          echo "║  📡 Tailscale IP: ${TAILSCALE_IP}"
+          echo "║  🔌 VNC Port:     5900"
+          echo "║  👤 Username:     ${VNC_USER}"
+          echo "║  🔑 Password:     (download credentials artifact)"
+          echo "║                                                              ║"
+          echo "║  📋 Steps to connect:                                        ║"
+          echo "║  1. Install Tailscale: https://tailscale.com/download        ║"
+          echo "║  2. Log in to your Tailscale account                         ║"
+          echo "║  3. Open VNC client and connect to:                          ║"
+          echo "║     vnc://${TAILSCALE_IP}:5900"
+          echo "║  4. Enter credentials from the artifact                      ║"
+          echo "║                                                              ║"
+          echo "║  ⏰ Session duration: ${SESSION_DURATION}h"
+          echo "║  📦 Download credentials: Actions → Artifacts                ║"
+          echo "║                                                              ║"
+          echo "╚══════════════════════════════════════════════════════════════╝"
+          echo ""
+
+      - name: Keep session alive
+        run: |
+          chmod +x scripts/keep-alive.sh
+          DURATION_HOURS=${{ env.SESSION_DURATION }} ./scripts/keep-alive.sh
+
+      - name: Save IP History Cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .ip-history.json
+          key: ip-history-${{ runner.os }}-${{ github.run_id }}

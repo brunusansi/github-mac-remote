@@ -1,28 +1,83 @@
 {
   "tiers": {
     "standard": {
-      "runner": "macos-14",
+      "runner_pattern": "macos-{version}",
       "vcpu": 3,
       "ram_gb": 7,
+      "arch": "arm64",
       "chip": "M1",
       "plans": ["free", "pro", "team", "enterprise"],
       "description": "Standard ARM64 runner - available for all plans"
     },
+    "intel": {
+      "runner_pattern": "macos-{version}-intel",
+      "available_versions": ["26"],
+      "vcpu": 4,
+      "ram_gb": 14,
+      "arch": "x64",
+      "chip": "Intel Xeon",
+      "plans": ["free", "pro", "team", "enterprise"],
+      "description": "Standard Intel x64 runner - macOS 26+ only"
+    },
     "large": {
-      "runner": "macos-14-large",
+      "runner_pattern": "macos-{version}-large",
       "vcpu": 12,
       "ram_gb": 30,
-      "chip": "M1 Pro",
+      "arch_by_version": {
+        "14": "arm64",
+        "15": "arm64",
+        "26": "x64"
+      },
+      "chip_by_version": {
+        "14": "M1 Pro",
+        "15": "M1 Pro",
+        "26": "Intel Xeon"
+      },
       "plans": ["team", "enterprise"],
-      "description": "Large runner - requires Team or Enterprise plan"
+      "description": "Large runner - requires Team or Enterprise plan. NOTE: macOS 26 large runs on Intel x64, not ARM"
     },
     "xlarge": {
-      "runner": "macos-14-xlarge",
-      "vcpu": 24,
-      "ram_gb": 70,
-      "chip": "M1 Max",
+      "runner_pattern": "macos-{version}-xlarge",
+      "vcpu_by_version": {
+        "14": 24,
+        "15": 24,
+        "26": 5
+      },
+      "ram_gb_by_version": {
+        "14": 70,
+        "15": 70,
+        "26": 14
+      },
+      "gpu_by_version": {
+        "14": null,
+        "15": null,
+        "26": "8-core GPU"
+      },
+      "arch": "arm64",
+      "chip_by_version": {
+        "14": "M1 Max",
+        "15": "M1 Max",
+        "26": "M2"
+      },
       "plans": ["enterprise"],
       "description": "Extra large runner - requires Enterprise plan"
+    }
+  },
+  "versions": {
+    "14": {
+      "name": "Sonoma",
+      "status": "GA",
+      "available_tiers": ["standard", "large", "xlarge"]
+    },
+    "15": {
+      "name": "Sequoia",
+      "status": "GA",
+      "available_tiers": ["standard", "large", "xlarge"]
+    },
+    "26": {
+      "name": "Tahoe",
+      "status": "GA",
+      "available_tiers": ["standard", "intel", "large", "xlarge"]
     }
   },
   "limits": {
